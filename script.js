@@ -898,15 +898,24 @@ function buildCard(item) {
   const downloadButton = fragment.querySelector(".item-download");
   const zoomButton = fragment.querySelector(".item-zoom");
   const rotateButton = fragment.querySelector(".item-rotate");
+  const controls = [downloadButton, zoomButton, rotateButton];
 
-  downloadButton.addEventListener("pointerdown", (event) => {
+  const stopSummaryToggle = (event) => {
     event.preventDefault();
     event.stopPropagation();
-  });
+  };
+
+  for (const control of controls) {
+    control.addEventListener("pointerdown", stopSummaryToggle);
+    control.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        stopSummaryToggle(event);
+      }
+    });
+  }
 
   downloadButton.addEventListener("click", async (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+    stopSummaryToggle(event);
 
     try {
       await downloadRotatedImage(item, image);
@@ -917,25 +926,13 @@ function buildCard(item) {
     }
   });
 
-  zoomButton.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-  });
-
   zoomButton.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+    stopSummaryToggle(event);
     openImageModal(item);
   });
 
-  rotateButton.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-  });
-
   rotateButton.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+    stopSummaryToggle(event);
 
     const key = String(item.id);
     const currentRotation = state.imageRotationById.get(key) ?? 0;

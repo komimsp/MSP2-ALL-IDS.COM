@@ -23,6 +23,7 @@
 
 html {
   scroll-behavior: smooth;
+  color-scheme: light;
 }
 
 body {
@@ -36,6 +37,7 @@ body {
 
 a {
   color: var(--accent-strong);
+  text-underline-offset: 0.14em;
 }
 
 .site-shell {
@@ -225,6 +227,7 @@ a {
 }
 
 .hero-link {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -336,6 +339,7 @@ a {
 
 .collection-field select,
 .sort-field select {
+  appearance: none;
   width: 100%;
   min-height: 52px;
   padding: 0 16px;
@@ -355,6 +359,7 @@ a {
 }
 
 .search-submit {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -387,6 +392,7 @@ a {
 
 .ghost-button,
 .load-more {
+  appearance: none;
   min-height: 52px;
   padding: 0 18px;
   border: 1px solid rgba(32, 32, 32, 0.1);
@@ -743,6 +749,7 @@ a {
 }
 
 .item-control {
+  appearance: none;
   display: grid;
   place-items: center;
   width: 32px;
@@ -760,6 +767,18 @@ a {
 .item-control:hover,
 .item-control:focus-visible {
   background: rgba(40, 40, 40, 0.9);
+}
+
+.search-submit:focus-visible,
+.ghost-button:focus-visible,
+.load-more:focus-visible,
+.item-control:focus-visible,
+.image-modal-close:focus-visible,
+.image-modal-link:focus-visible,
+.meta-link:focus-visible,
+.hero-link:focus-visible {
+  outline: 2px solid rgba(60, 197, 205, 0.52);
+  outline-offset: 2px;
 }
 
 .item-download {
@@ -988,6 +1007,7 @@ a {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  align-items: center;
 }
 
 .meta-link {
@@ -1082,6 +1102,7 @@ a {
 
 .image-modal-close,
 .image-modal-link {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1155,7 +1176,7 @@ a {
 }
 
 .item-card.is-broken .image-frame::after {
-  content: "Brak podgladu";
+  content: "Brak podglądu";
   position: absolute;
   left: 50%;
   top: 50%;
@@ -1492,7 +1513,22 @@ a {
   }
 
   .item-card[open] .meta-state,
-  .item-card[open] .meta-link {
+  .item-card[open] .meta-actions {
     grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
