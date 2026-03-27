@@ -7,6 +7,8 @@ const state = {
   totalAvailable: 0,
   searchQuery: "",
   selectedCollectionType: "",
+  selectedThemeGroupKey: "",
+  selectedCampaignGroupKey: "",
   selectedSortOrder: "desc",
   isRendering: false,
   cachedItemsCount: -1,
@@ -22,6 +24,8 @@ const elements = {
   search: document.getElementById("search"),
   showId: document.getElementById("show-id"),
   collectionType: document.getElementById("collection-type"),
+  themeGroup: document.getElementById("theme-group"),
+  campaignGroup: document.getElementById("campaign-group"),
   sortOrder: document.getElementById("sort-order"),
   clearSearch: document.getElementById("clear-search"),
   items: document.getElementById("items"),
@@ -90,12 +94,72 @@ function formatSortOrderLabel(sortOrder) {
     : "ID od największych do najmniejszych";
 }
 
+function getActiveGroupKey() {
+  return state.selectedThemeGroupKey || state.selectedCampaignGroupKey || "";
+}
+
+function getCollectionGroupsByType(collectionType) {
+  const groups = new Map();
+  const catalogItems = Array.isArray(state.catalog?.items) ? state.catalog.items : [];
+
+  for (const item of catalogItems) {
+    const group = item?.collectionGroup;
+    if (!group || group.type !== collectionType || !group.sortKey) {
+      continue;
+    }
+
+    if (!groups.has(group.sortKey)) {
+      groups.set(group.sortKey, {
+        key: group.sortKey,
+        label: group.label || group.lookUpId || group.key || "collection",
+        type: group.type,
+        count: 0,
+      });
+    }
+
+    groups.get(group.sortKey).count += 1;
+  }
+
+  return [...groups.values()].sort((left, right) =>
+    left.label.localeCompare(right.label, "pl")
+  );
+}
+
+function getActiveGroupEntry() {
+  const activeGroupKey = getActiveGroupKey();
+  if (!activeGroupKey) {
+    return null;
+  }
+
+  const themeEntry = getCollectionGroupsByType("collection.theme").find(
+    (entry) => entry.key === activeGroupKey
+  );
+  if (themeEntry) {
+    return themeEntry;
+  }
+
+  return getCollectionGroupsByType("collection.campaign").find(
+    (entry) => entry.key === activeGroupKey
+  ) || null;
+}
+
 function updateResultsHint() {
   const sortText = formatSortOrderLabel(state.selectedSortOrder);
+  const activeGroup = getActiveGroupEntry();
 
   if (state.searchQuery) {
     elements.resultsHint.textContent =
       `Pokazuję dokładnie ID ${state.searchQuery}. Filtr collection jest pomijany. ${sortText}.`;
+    return;
+  }
+
+  if (activeGroup) {
+    const groupLabel =
+      state.selectedThemeGroupKey
+        ? `motyw ${activeGroup.label}`
+        : `kampanię ${activeGroup.label}`;
+    elements.resultsHint.textContent =
+      `Pokazuję tylko ${groupLabel} i przewijam do tej grupy. ${sortText}.`;
     return;
   }
 
@@ -201,7 +265,13 @@ function compareItems(left, right, sortOrder, groupFirst = true) {
   return sortOrder === "asc" ? left.id - right.id : right.id - left.id;
 }
 
-function getFilteredItems({ ids = [], searchQuery = "", collectionType = "", sortOrder = "desc" } = {}) {
+function getFilteredItems({
+  ids = [],
+  searchQuery = "",
+  collectionType = "",
+  groupKey = "",
+  sortOrder = "desc",
+} = {}) {
   const catalogItems = Array.isArray(state.catalog?.items) ? state.catalog.items : [];
   const normalizedSearch = normalizeIdQuery(searchQuery);
 
@@ -214,12 +284,14 @@ function getFilteredItems({ ids = [], searchQuery = "", collectionType = "", sor
 
   if (normalizedSearch) {
     items = items.filter((item) => String(item.id) === normalizedSearch);
+  } else if (groupKey) {
+    items = items.filter((item) => item?.collectionGroup?.sortKey === groupKey);
   } else if (collectionType) {
     items = items.filter((item) => item?.collectionGroup?.type === collectionType);
   }
 
   return [...items].sort((left, right) =>
-    compareItems(left, right, sortOrder, !normalizedSearch && !collectionType)
+    compareItems(left, right, sortOrder, !normalizedSearch && !collectionType && !groupKey)
   );
 }
 
@@ -272,8 +344,9 @@ async function fetchJson(url) {
     const offset = Number.parseInt(requestUrl.searchParams.get("offset") || "0", 10);
     const limit = Number.parseInt(requestUrl.searchParams.get("limit") || String(BATCH_SIZE), 10);
     const collectionType = requestUrl.searchParams.get("collectionType") || "";
+    const groupKey = requestUrl.searchParams.get("groupKey") || "";
     const sortOrder = requestUrl.searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
-    const items = getFilteredItems({ collectionType, sortOrder });
+    const items = getFilteredItems({ collectionType, groupKey, sortOrder });
 
     return {
       total: items.length,
@@ -601,6 +674,49 @@ function populateCollectionTypes(collectionTypes) {
   elements.collectionType.value = state.selectedCollectionType;
 }
 
+function populateGroupSelect(selectElement, entries, currentValue, defaultLabel) {
+  const availableValues = new Set([""]);
+  selectElement.replaceChildren();
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = defaultLabel;
+  selectElement.appendChild(defaultOption);
+
+  for (const entry of entries) {
+    const option = document.createElement("option");
+    option.value = entry.key;
+    option.textContent = `${entry.label} (${formatNumber(entry.count)})`;
+    option.title = entry.label;
+    selectElement.appendChild(option);
+    availableValues.add(entry.key);
+  }
+
+  if (!availableValues.has(currentValue)) {
+    selectElement.value = "";
+    return "";
+  }
+
+  selectElement.value = currentValue;
+  return currentValue;
+}
+
+function populateCollectionGroupJumpSelects() {
+  state.selectedThemeGroupKey = populateGroupSelect(
+    elements.themeGroup,
+    getCollectionGroupsByType("collection.theme"),
+    state.selectedThemeGroupKey,
+    "Wszystkie motywy"
+  );
+
+  state.selectedCampaignGroupKey = populateGroupSelect(
+    elements.campaignGroup,
+    getCollectionGroupsByType("collection.campaign"),
+    state.selectedCampaignGroupKey,
+    "Wszystkie kampanie"
+  );
+}
+
 function getCollectionGroupKey(item) {
   return item.collectionGroup?.sortKey || "__ungrouped__";
 }
@@ -609,6 +725,7 @@ function buildGroupSeparator(item) {
   const group = item.collectionGroup;
   const separator = document.createElement("div");
   separator.className = "group-separator";
+  separator.dataset.groupKey = group?.sortKey || "";
 
   const title = document.createElement("p");
   title.className = "group-separator-title";
@@ -983,6 +1100,7 @@ function buildCard(item) {
 }
 
 function updateSummary() {
+  const activeGroup = getActiveGroupEntry();
   const collectionText =
     !state.searchQuery && state.selectedCollectionType
       ? ` w ${state.selectedCollectionType}`
@@ -998,9 +1116,10 @@ function updateSummary() {
   const queryText = state.searchQuery
     ? ` dla dokładnego ID ${state.searchQuery}`
     : "";
+  const groupText = activeGroup ? ` w grupie ${activeGroup.label}` : "";
 
   elements.resultsLabel.textContent =
-    `Widoczne ${formatNumber(state.renderedCount)} z ${formatNumber(state.totalAvailable)} elementów${collectionText}${queryText}.`;
+    `Widoczne ${formatNumber(state.renderedCount)} z ${formatNumber(state.totalAvailable)} elementów${collectionText}${groupText}${queryText}.`;
 }
 
 function syncLoadMoreButton() {
@@ -1019,6 +1138,23 @@ function maybeFillViewport() {
   ) {
     renderNextBatch();
   }
+}
+
+function scrollToActiveGroup() {
+  const activeGroupKey = getActiveGroupKey();
+  if (!activeGroupKey) {
+    return;
+  }
+
+  const separator = elements.items.querySelector(`[data-group-key="${CSS.escape(activeGroupKey)}"]`);
+  if (!separator) {
+    return;
+  }
+
+  separator.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
 }
 
 async function reloadVisibleItems() {
@@ -1108,6 +1244,9 @@ async function renderNextBatch(reset = false) {
     if (state.selectedCollectionType) {
       params.set("collectionType", state.selectedCollectionType);
     }
+    if (getActiveGroupKey()) {
+      params.set("groupKey", getActiveGroupKey());
+    }
     params.set("sortOrder", state.selectedSortOrder);
 
     const payload = await fetchJson(`/api/items?${params.toString()}`);
@@ -1138,6 +1277,9 @@ async function renderNextBatch(reset = false) {
 
     updateSummary();
     syncLoadMoreButton();
+    if (reset && getActiveGroupKey()) {
+      requestAnimationFrame(scrollToActiveGroup);
+    }
     requestAnimationFrame(maybeFillViewport);
   } catch (error) {
     setStatus(`Nie udało się pobrać listy elementów: ${error.message}`, true);
@@ -1176,6 +1318,7 @@ async function refreshStatus() {
     elements.scanNextRun.textContent = payload.generatedAt ? formatDate(payload.generatedAt) : "—";
 
     populateCollectionTypes(payload.availableCollectionTypes);
+    populateCollectionGroupJumpSelects();
     updateResultsHint();
 
     setStatus("Katalog statyczny gotowy. Strona działa bez backendu i nadaje się do hostowania na GitHub Pages.");
@@ -1192,6 +1335,40 @@ async function refreshStatus() {
 function applyFilter(rawQuery) {
   state.searchQuery = normalizeIdQuery(rawQuery);
   elements.search.value = state.searchQuery;
+
+  if (state.searchQuery) {
+    state.selectedThemeGroupKey = "";
+    state.selectedCampaignGroupKey = "";
+    elements.themeGroup.value = "";
+    elements.campaignGroup.value = "";
+  }
+
+  updateResultsHint();
+  renderNextBatch(true);
+}
+
+function applyGroupJump(groupType, groupKey) {
+  elements.search.value = "";
+  state.searchQuery = "";
+
+  if (groupType === "collection.theme") {
+    state.selectedThemeGroupKey = groupKey;
+    state.selectedCampaignGroupKey = "";
+    elements.campaignGroup.value = "";
+  } else {
+    state.selectedCampaignGroupKey = groupKey;
+    state.selectedThemeGroupKey = "";
+    elements.themeGroup.value = "";
+  }
+
+  if (groupKey) {
+    state.selectedCollectionType = groupType;
+    elements.collectionType.value = groupType;
+  } else if (state.selectedCollectionType === groupType) {
+    state.selectedCollectionType = "";
+    elements.collectionType.value = "";
+  }
+
   updateResultsHint();
   renderNextBatch(true);
 }
@@ -1228,8 +1405,27 @@ function wireEvents() {
 
   elements.collectionType.addEventListener("change", (event) => {
     state.selectedCollectionType = event.target.value;
+
+    if (state.selectedCollectionType !== "collection.theme") {
+      state.selectedThemeGroupKey = "";
+      elements.themeGroup.value = "";
+    }
+
+    if (state.selectedCollectionType !== "collection.campaign") {
+      state.selectedCampaignGroupKey = "";
+      elements.campaignGroup.value = "";
+    }
+
     updateResultsHint();
     renderNextBatch(true);
+  });
+
+  elements.themeGroup.addEventListener("change", (event) => {
+    applyGroupJump("collection.theme", event.target.value);
+  });
+
+  elements.campaignGroup.addEventListener("change", (event) => {
+    applyGroupJump("collection.campaign", event.target.value);
   });
 
   elements.sortOrder.addEventListener("change", (event) => {
@@ -1241,8 +1437,12 @@ function wireEvents() {
   elements.clearSearch.addEventListener("click", () => {
     elements.search.value = "";
     elements.collectionType.value = "";
+    elements.themeGroup.value = "";
+    elements.campaignGroup.value = "";
     elements.sortOrder.value = "desc";
     state.selectedCollectionType = "";
+    state.selectedThemeGroupKey = "";
+    state.selectedCampaignGroupKey = "";
     state.selectedSortOrder = "desc";
     applyFilter("");
     elements.search.focus();

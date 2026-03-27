@@ -320,7 +320,7 @@ a {
 
 .toolbar-secondary {
   display: grid;
-  grid-template-columns: repeat(2, minmax(180px, 280px)) auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   gap: 16px;
   align-items: end;
   justify-content: start;
@@ -1273,7 +1273,7 @@ a {
   }
 
   .toolbar-secondary {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .toolbar-filters {
@@ -1282,6 +1282,7 @@ a {
 
   .ghost-button {
     width: 100%;
+    grid-column: 1 / -1;
   }
 
   .toolbar-summary {
@@ -1543,6 +1544,7 @@ a {
 
 @media (max-width: 360px) {
   .scan-panel,
+  .toolbar-secondary,
   .items-list {
     grid-template-columns: 1fr;
   }
