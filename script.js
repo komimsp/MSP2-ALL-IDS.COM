@@ -7,7 +7,7 @@ const state = {
   renderedCount: 0,
   totalAvailable: 0,
   searchQuery: "",
-  selectedYear: "",
+  selectedYearOrder: "desc",
   selectedCollectionType: "",
   selectedThemeGroupKey: "",
   selectedCampaignGroupKey: "",
@@ -97,9 +97,8 @@ function formatSortOrderLabel(sortOrder) {
     : "ID od największych do najmniejszych";
 }
 
-function normalizeSupportedYear(value) {
-  const year = String(value || "").trim();
-  return SUPPORTED_YEARS.includes(year) ? year : "";
+function normalizeYearOrder(value) {
+  return value === "asc" ? "asc" : "desc";
 }
 
 function extractYearFromTexts(...values) {
@@ -122,6 +121,22 @@ function getItemYear(item) {
     item?.metadata?.graphicsResourceIdentifier,
     item?.metadata?.created
   );
+}
+
+function getYearSequence(order = state.selectedYearOrder) {
+  return normalizeYearOrder(order) === "asc"
+    ? [...SUPPORTED_YEARS]
+    : [...SUPPORTED_YEARS].reverse();
+}
+
+function getYearOrderLabel(order = state.selectedYearOrder) {
+  return normalizeYearOrder(order) === "asc" ? "2019-2026" : "2026-2019";
+}
+
+function getYearRank(year, order = state.selectedYearOrder) {
+  const sequence = getYearSequence(order);
+  const index = sequence.indexOf(String(year || ""));
+  return index === -1 ? sequence.length : index;
 }
 
 function getActiveGroupKey() {
@@ -152,6 +167,7 @@ function getCollectionGroupsByType(collectionType) {
   }
 
   return [...groups.values()].sort((left, right) =>
+    getYearRank(left.year) - getYearRank(right.year) ||
     left.label.localeCompare(right.label, "pl")
   );
 }
@@ -177,11 +193,11 @@ function getActiveGroupEntry() {
 function updateResultsHint() {
   const sortText = formatSortOrderLabel(state.selectedSortOrder);
   const activeGroup = getActiveGroupEntry();
-  const yearText = state.selectedYear ? `Rok ${state.selectedYear}. ` : "";
+  const yearText = `Lata ${getYearOrderLabel()}. `;
 
   if (state.searchQuery) {
     elements.resultsHint.textContent =
-      `Pokazuję dokładnie ID ${state.searchQuery}. Filtry roku i collection są pomijane. ${sortText}.`;
+      `Pokazuję dokładnie ID ${state.searchQuery}. Układ lat nie zmienia pojedynczego wyniku. ${sortText}.`;
     return;
   }
 
@@ -276,7 +292,14 @@ async function ensureCatalogLoaded() {
   return state.catalog;
 }
 
-function compareItems(left, right, sortOrder, groupFirst = true) {
+function compareItems(left, right, sortOrder, groupFirst = true, yearOrder = state.selectedYearOrder) {
+  const leftYearRank = getYearRank(getItemYear(left), yearOrder);
+  const rightYearRank = getYearRank(getItemYear(right), yearOrder);
+
+  if (leftYearRank !== rightYearRank) {
+    return leftYearRank - rightYearRank;
+  }
+
   const leftHasGroup = Boolean(left?.collectionGroup);
   const rightHasGroup = Boolean(right?.collectionGroup);
 
@@ -301,7 +324,7 @@ function compareItems(left, right, sortOrder, groupFirst = true) {
 function getFilteredItems({
   ids = [],
   searchQuery = "",
-  year = "",
+  yearOrder = state.selectedYearOrder,
   collectionType = "",
   groupKey = "",
   sortOrder = "desc",
@@ -319,10 +342,6 @@ function getFilteredItems({
   if (normalizedSearch) {
     items = items.filter((item) => String(item.id) === normalizedSearch);
   } else {
-    if (year) {
-      items = items.filter((item) => getItemYear(item) === year);
-    }
-
     if (groupKey) {
       items = items.filter((item) => item?.collectionGroup?.sortKey === groupKey);
     } else if (collectionType) {
@@ -331,7 +350,7 @@ function getFilteredItems({
   }
 
   return [...items].sort((left, right) =>
-    compareItems(left, right, sortOrder, !normalizedSearch && !collectionType && !groupKey)
+    compareItems(left, right, sortOrder, !normalizedSearch && !collectionType && !groupKey, yearOrder)
   );
 }
 
@@ -383,11 +402,11 @@ async function fetchJson(url) {
     const requestUrl = new URL(url, window.location.origin);
     const offset = Number.parseInt(requestUrl.searchParams.get("offset") || "0", 10);
     const limit = Number.parseInt(requestUrl.searchParams.get("limit") || String(BATCH_SIZE), 10);
-    const year = normalizeSupportedYear(requestUrl.searchParams.get("year") || "");
+    const yearOrder = normalizeYearOrder(requestUrl.searchParams.get("yearOrder") || "");
     const collectionType = requestUrl.searchParams.get("collectionType") || "";
     const groupKey = requestUrl.searchParams.get("groupKey") || "";
     const sortOrder = requestUrl.searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
-    const items = getFilteredItems({ year, collectionType, groupKey, sortOrder });
+    const items = getFilteredItems({ yearOrder, collectionType, groupKey, sortOrder });
 
     return {
       total: items.length,
@@ -724,11 +743,11 @@ function populateGroupSelect(selectElement, entries, currentValue, defaultLabel)
   defaultOption.textContent = defaultLabel;
   selectElement.appendChild(defaultOption);
 
-  const entriesByYear = new Map(SUPPORTED_YEARS.map((year) => [year, []]));
+  const entriesByYear = new Map(getYearSequence().map((year) => [year, []]));
   const otherEntries = [];
 
   for (const entry of entries) {
-    const year = normalizeSupportedYear(entry.year);
+    const year = SUPPORTED_YEARS.includes(String(entry.year || "")) ? String(entry.year) : "";
     if (year) {
       entriesByYear.get(year).push(entry);
     } else {
@@ -736,7 +755,7 @@ function populateGroupSelect(selectElement, entries, currentValue, defaultLabel)
     }
   }
 
-  for (const year of SUPPORTED_YEARS) {
+  for (const year of getYearSequence()) {
     const yearEntries = entriesByYear.get(year) || [];
     if (!yearEntries.length) {
       continue;
@@ -783,36 +802,18 @@ function populateGroupSelect(selectElement, entries, currentValue, defaultLabel)
 }
 
 function populateYearFilter() {
-  const counts = new Map(SUPPORTED_YEARS.map((year) => [year, 0]));
-  const catalogItems = Array.isArray(state.catalog?.items) ? state.catalog.items : [];
-
-  for (const item of catalogItems) {
-    const year = getItemYear(item);
-    if (counts.has(year)) {
-      counts.set(year, counts.get(year) + 1);
-    }
-  }
-
   elements.yearFilter.replaceChildren();
 
-  const defaultOption = document.createElement("option");
-  defaultOption.value = "";
-  defaultOption.textContent = "Wszystkie lata";
-  elements.yearFilter.appendChild(defaultOption);
+  const ascendingOption = document.createElement("option");
+  ascendingOption.value = "asc";
+  ascendingOption.textContent = "2019-2026";
 
-  for (const year of SUPPORTED_YEARS) {
-    const count = counts.get(year) || 0;
-    if (!count) {
-      continue;
-    }
+  const descendingOption = document.createElement("option");
+  descendingOption.value = "desc";
+  descendingOption.textContent = "2026-2019";
 
-    const option = document.createElement("option");
-    option.value = year;
-    option.textContent = `${year} (${formatNumber(count)})`;
-    elements.yearFilter.appendChild(option);
-  }
-
-  elements.yearFilter.value = state.selectedYear;
+  elements.yearFilter.append(ascendingOption, descendingOption);
+  elements.yearFilter.value = normalizeYearOrder(state.selectedYearOrder);
 }
 
 function populateCollectionGroupJumpSelects() {
@@ -1217,7 +1218,7 @@ function buildCard(item) {
 
 function updateSummary() {
   const activeGroup = getActiveGroupEntry();
-  const yearText = state.selectedYear ? ` z roku ${state.selectedYear}` : "";
+  const yearText = ` w układzie lat ${getYearOrderLabel()}`;
   const collectionText =
     !state.searchQuery && state.selectedCollectionType
       ? ` w ${state.selectedCollectionType}`
@@ -1358,9 +1359,7 @@ async function renderNextBatch(reset = false) {
       limit: String(BATCH_SIZE),
     });
 
-    if (state.selectedYear) {
-      params.set("year", state.selectedYear);
-    }
+    params.set("yearOrder", state.selectedYearOrder);
     if (state.selectedCollectionType) {
       params.set("collectionType", state.selectedCollectionType);
     }
@@ -1457,10 +1456,8 @@ function applyFilter(rawQuery) {
   elements.search.value = state.searchQuery;
 
   if (state.searchQuery) {
-    state.selectedYear = "";
     state.selectedThemeGroupKey = "";
     state.selectedCampaignGroupKey = "";
-    elements.yearFilter.value = "";
     elements.themeGroup.value = "";
     elements.campaignGroup.value = "";
   }
@@ -1486,15 +1483,9 @@ function applyGroupJump(groupType, groupKey) {
   if (groupKey) {
     state.selectedCollectionType = groupType;
     elements.collectionType.value = groupType;
-    const activeGroupEntries = getCollectionGroupsByType(groupType);
-    const activeGroup = activeGroupEntries.find((entry) => entry.key === groupKey) || null;
-    state.selectedYear = normalizeSupportedYear(activeGroup?.year);
-    elements.yearFilter.value = state.selectedYear;
   } else if (state.selectedCollectionType === groupType) {
     state.selectedCollectionType = "";
     elements.collectionType.value = "";
-    state.selectedYear = "";
-    elements.yearFilter.value = "";
   }
 
   updateResultsHint();
@@ -1549,7 +1540,7 @@ function wireEvents() {
   });
 
   elements.yearFilter.addEventListener("change", (event) => {
-    state.selectedYear = normalizeSupportedYear(event.target.value);
+    state.selectedYearOrder = normalizeYearOrder(event.target.value);
     state.selectedThemeGroupKey = "";
     state.selectedCampaignGroupKey = "";
     elements.themeGroup.value = "";
@@ -1574,12 +1565,12 @@ function wireEvents() {
 
   elements.clearSearch.addEventListener("click", () => {
     elements.search.value = "";
-    elements.yearFilter.value = "";
+    elements.yearFilter.value = "desc";
     elements.collectionType.value = "";
     elements.themeGroup.value = "";
     elements.campaignGroup.value = "";
     elements.sortOrder.value = "desc";
-    state.selectedYear = "";
+    state.selectedYearOrder = "desc";
     state.selectedCollectionType = "";
     state.selectedThemeGroupKey = "";
     state.selectedCampaignGroupKey = "";
