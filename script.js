@@ -8,6 +8,7 @@ const state = {
   totalAvailable: 0,
   searchQuery: "",
   selectedYearOrder: "desc",
+  selectedItemType: "",
   selectedCollectionType: "",
   selectedThemeGroupKey: "",
   selectedCampaignGroupKey: "",
@@ -26,6 +27,7 @@ const elements = {
   search: document.getElementById("search"),
   showId: document.getElementById("show-id"),
   yearFilter: document.getElementById("year-filter"),
+  itemType: document.getElementById("item-type"),
   collectionType: document.getElementById("collection-type"),
   themeGroup: document.getElementById("theme-group"),
   campaignGroup: document.getElementById("campaign-group"),
@@ -89,6 +91,19 @@ function formatCollectionTypeLabel(collectionType) {
   return collectionType.startsWith("collection.")
     ? collectionType.slice("collection.".length)
     : collectionType;
+}
+
+function formatItemTypeLabel(itemType) {
+  return String(itemType || "").trim() || "bez type";
+}
+
+function getItemTypeTokens(rawValue) {
+  const values = String(rawValue || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  return [...new Set(values)];
 }
 
 function formatSortOrderLabel(sortOrder) {
@@ -194,6 +209,7 @@ function updateResultsHint() {
   const sortText = formatSortOrderLabel(state.selectedSortOrder);
   const activeGroup = getActiveGroupEntry();
   const yearText = `Lata ${getYearOrderLabel()}. `;
+  const itemTypeText = state.selectedItemType ? ` i type ${state.selectedItemType}` : "";
 
   if (state.searchQuery) {
     elements.resultsHint.textContent =
@@ -207,13 +223,19 @@ function updateResultsHint() {
         ? `motyw ${activeGroup.label}`
         : `kampanię ${activeGroup.label}`;
     elements.resultsHint.textContent =
-      `${yearText}Pokazuję tylko ${groupLabel} i przewijam do tej grupy. ${sortText}.`;
+      `${yearText}Pokazuję tylko ${groupLabel}${itemTypeText} i przewijam do tej grupy. ${sortText}.`;
     return;
   }
 
   if (state.selectedCollectionType) {
     elements.resultsHint.textContent =
-      `${yearText}Pokazuję grupy tylko dla ${state.selectedCollectionType}. ${sortText}.`;
+      `${yearText}Pokazuję grupy tylko dla ${state.selectedCollectionType}${itemTypeText}. ${sortText}.`;
+    return;
+  }
+
+  if (state.selectedItemType) {
+    elements.resultsHint.textContent =
+      `${yearText}Pokazuję tylko ID z type ${state.selectedItemType}. ${sortText}.`;
     return;
   }
 
@@ -247,6 +269,27 @@ function getStaticCollectionTypes(items) {
     .sort((left, right) => left.suffix.localeCompare(right.suffix, "pl"));
 }
 
+function getStaticItemTypes(items) {
+  const counts = new Map();
+
+  for (const item of Array.isArray(items) ? items : []) {
+    const itemTypes = getItemTypeTokens(item?.metadata?.itemType);
+    for (const itemType of itemTypes) {
+      counts.set(itemType, (counts.get(itemType) || 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([type, count]) => ({
+      type,
+      count,
+    }))
+    .sort((left, right) =>
+      left.type.localeCompare(right.type, "pl", { sensitivity: "base" }) ||
+      right.count - left.count
+    );
+}
+
 async function ensureCatalogLoaded() {
   if (state.catalog) {
     return state.catalog;
@@ -275,6 +318,10 @@ async function ensureCatalogLoaded() {
     Array.isArray(payload?.availableCollectionTypes) && payload.availableCollectionTypes.length
       ? payload.availableCollectionTypes
       : getStaticCollectionTypes(items);
+  const availableItemTypes =
+    Array.isArray(payload?.availableItemTypes) && payload.availableItemTypes.length
+      ? payload.availableItemTypes
+      : getStaticItemTypes(items);
   const totalImages = items.filter((item) => item?.hasImage).length;
   const metadataCount = items.filter((item) => item?.metadata).length;
 
@@ -287,6 +334,7 @@ async function ensureCatalogLoaded() {
     totalImages,
     metadataCount,
     availableCollectionTypes,
+    availableItemTypes,
   };
   state.cachedItemsCount = metadataCount;
   return state.catalog;
@@ -325,6 +373,7 @@ function getFilteredItems({
   ids = [],
   searchQuery = "",
   yearOrder = state.selectedYearOrder,
+  itemType = "",
   collectionType = "",
   groupKey = "",
   sortOrder = "desc",
@@ -342,6 +391,10 @@ function getFilteredItems({
   if (normalizedSearch) {
     items = items.filter((item) => String(item.id) === normalizedSearch);
   } else {
+    if (itemType) {
+      items = items.filter((item) => getItemTypeTokens(item?.metadata?.itemType).includes(itemType));
+    }
+
     if (groupKey) {
       items = items.filter((item) => item?.collectionGroup?.sortKey === groupKey);
     } else if (collectionType) {
@@ -363,6 +416,7 @@ function buildStaticStatusPayload() {
     minId: catalog?.minId ?? null,
     maxId: catalog?.maxId ?? null,
     availableCollectionTypes: catalog?.availableCollectionTypes ?? [],
+    availableItemTypes: catalog?.availableItemTypes ?? [],
     generatedAt: catalog?.generatedAt ?? null,
     source: catalog?.source ?? null,
     isCompleted: true,
@@ -403,10 +457,11 @@ async function fetchJson(url) {
     const offset = Number.parseInt(requestUrl.searchParams.get("offset") || "0", 10);
     const limit = Number.parseInt(requestUrl.searchParams.get("limit") || String(BATCH_SIZE), 10);
     const yearOrder = normalizeYearOrder(requestUrl.searchParams.get("yearOrder") || "");
+    const itemType = requestUrl.searchParams.get("itemType") || "";
     const collectionType = requestUrl.searchParams.get("collectionType") || "";
     const groupKey = requestUrl.searchParams.get("groupKey") || "";
     const sortOrder = requestUrl.searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
-    const items = getFilteredItems({ yearOrder, collectionType, groupKey, sortOrder });
+    const items = getFilteredItems({ yearOrder, itemType, collectionType, groupKey, sortOrder });
 
     return {
       total: items.length,
@@ -732,6 +787,36 @@ function populateCollectionTypes(collectionTypes) {
   }
 
   elements.collectionType.value = state.selectedCollectionType;
+}
+
+function populateItemTypes(itemTypes) {
+  const currentValue = state.selectedItemType;
+  const normalizedTypes = Array.isArray(itemTypes) ? itemTypes : [];
+  const availableValues = new Set([""]);
+
+  elements.itemType.replaceChildren();
+
+  const allOption = document.createElement("option");
+  allOption.value = "";
+  allOption.textContent = "Wszystkie type";
+  elements.itemType.appendChild(allOption);
+
+  for (const entry of normalizedTypes) {
+    if (!entry?.type) continue;
+
+    const option = document.createElement("option");
+    option.value = entry.type;
+    option.textContent = `${formatItemTypeLabel(entry.type)} (${formatNumber(entry.count || 0)})`;
+    option.title = entry.type;
+    elements.itemType.appendChild(option);
+    availableValues.add(entry.type);
+  }
+
+  if (!availableValues.has(currentValue)) {
+    state.selectedItemType = "";
+  }
+
+  elements.itemType.value = state.selectedItemType;
 }
 
 function populateGroupSelect(selectElement, entries, currentValue, defaultLabel) {
@@ -1219,6 +1304,8 @@ function buildCard(item) {
 function updateSummary() {
   const activeGroup = getActiveGroupEntry();
   const yearText = ` w układzie lat ${getYearOrderLabel()}`;
+  const itemTypeText =
+    !state.searchQuery && state.selectedItemType ? ` dla type ${state.selectedItemType}` : "";
   const collectionText =
     !state.searchQuery && state.selectedCollectionType
       ? ` w ${state.selectedCollectionType}`
@@ -1227,7 +1314,7 @@ function updateSummary() {
   if (!state.totalAvailable) {
     elements.resultsLabel.textContent = state.searchQuery
       ? `Nie znaleziono ID ${state.searchQuery}.`
-      : `Brak elementów do wyświetlenia${yearText}${collectionText}.`;
+      : `Brak elementów do wyświetlenia${yearText}${itemTypeText}${collectionText}.`;
     return;
   }
 
@@ -1237,7 +1324,7 @@ function updateSummary() {
   const groupText = activeGroup ? ` w grupie ${activeGroup.label}` : "";
 
   elements.resultsLabel.textContent =
-    `Widoczne ${formatNumber(state.renderedCount)} z ${formatNumber(state.totalAvailable)} elementów${yearText}${collectionText}${groupText}${queryText}.`;
+    `Widoczne ${formatNumber(state.renderedCount)} z ${formatNumber(state.totalAvailable)} elementów${yearText}${itemTypeText}${collectionText}${groupText}${queryText}.`;
 }
 
 function syncLoadMoreButton() {
@@ -1360,6 +1447,9 @@ async function renderNextBatch(reset = false) {
     });
 
     params.set("yearOrder", state.selectedYearOrder);
+    if (state.selectedItemType) {
+      params.set("itemType", state.selectedItemType);
+    }
     if (state.selectedCollectionType) {
       params.set("collectionType", state.selectedCollectionType);
     }
@@ -1436,6 +1526,7 @@ async function refreshStatus() {
       `${formatNumber(payload.cachedItemsCount)} / ${formatNumber(payload.totalItems)} rekordów z metadanymi`;
     elements.scanNextRun.textContent = payload.generatedAt ? formatDate(payload.generatedAt) : "—";
 
+    populateItemTypes(payload.availableItemTypes);
     populateCollectionTypes(payload.availableCollectionTypes);
     populateCollectionGroupJumpSelects();
     updateResultsHint();
@@ -1539,6 +1630,12 @@ function wireEvents() {
     renderNextBatch(true);
   });
 
+  elements.itemType.addEventListener("change", (event) => {
+    state.selectedItemType = event.target.value;
+    updateResultsHint();
+    renderNextBatch(true);
+  });
+
   elements.yearFilter.addEventListener("change", (event) => {
     state.selectedYearOrder = normalizeYearOrder(event.target.value);
     state.selectedThemeGroupKey = "";
@@ -1566,11 +1663,13 @@ function wireEvents() {
   elements.clearSearch.addEventListener("click", () => {
     elements.search.value = "";
     elements.yearFilter.value = "desc";
+    elements.itemType.value = "";
     elements.collectionType.value = "";
     elements.themeGroup.value = "";
     elements.campaignGroup.value = "";
     elements.sortOrder.value = "desc";
     state.selectedYearOrder = "desc";
+    state.selectedItemType = "";
     state.selectedCollectionType = "";
     state.selectedThemeGroupKey = "";
     state.selectedCampaignGroupKey = "";
