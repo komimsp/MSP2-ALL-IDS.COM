@@ -1,11 +1,13 @@
 const BATCH_SIZE = 60;
 const STATIC_CATALOG_URL = "./data/catalog.json";
 const JSON_REPO_BASE_URL = "https://github.com/komimsp/msp2_json_ids/blob/main/ids";
+const SUPPORTED_YEARS = ["2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"];
 
 const state = {
   renderedCount: 0,
   totalAvailable: 0,
   searchQuery: "",
+  selectedYear: "",
   selectedCollectionType: "",
   selectedThemeGroupKey: "",
   selectedCampaignGroupKey: "",
@@ -23,6 +25,7 @@ const elements = {
   statusMessage: document.getElementById("status-message"),
   search: document.getElementById("search"),
   showId: document.getElementById("show-id"),
+  yearFilter: document.getElementById("year-filter"),
   collectionType: document.getElementById("collection-type"),
   themeGroup: document.getElementById("theme-group"),
   campaignGroup: document.getElementById("campaign-group"),
@@ -94,6 +97,33 @@ function formatSortOrderLabel(sortOrder) {
     : "ID od największych do najmniejszych";
 }
 
+function normalizeSupportedYear(value) {
+  const year = String(value || "").trim();
+  return SUPPORTED_YEARS.includes(year) ? year : "";
+}
+
+function extractYearFromTexts(...values) {
+  for (const value of values) {
+    const match = String(value || "").match(/\b(20(?:19|20|21|22|23|24|25|26))\b/);
+    if (match) {
+      return match[1];
+    }
+  }
+
+  return "";
+}
+
+function getItemYear(item) {
+  return extractYearFromTexts(
+    item?.collectionGroup?.label,
+    item?.collectionGroup?.lookUpId,
+    item?.collectionGroup?.key,
+    item?.metadata?.nameResourceIdentifier,
+    item?.metadata?.graphicsResourceIdentifier,
+    item?.metadata?.created
+  );
+}
+
 function getActiveGroupKey() {
   return state.selectedThemeGroupKey || state.selectedCampaignGroupKey || "";
 }
@@ -113,6 +143,7 @@ function getCollectionGroupsByType(collectionType) {
         key: group.sortKey,
         label: group.label || group.lookUpId || group.key || "collection",
         type: group.type,
+        year: extractYearFromTexts(group.label, group.lookUpId, group.key, item?.metadata?.created),
         count: 0,
       });
     }
@@ -146,10 +177,11 @@ function getActiveGroupEntry() {
 function updateResultsHint() {
   const sortText = formatSortOrderLabel(state.selectedSortOrder);
   const activeGroup = getActiveGroupEntry();
+  const yearText = state.selectedYear ? `Rok ${state.selectedYear}. ` : "";
 
   if (state.searchQuery) {
     elements.resultsHint.textContent =
-      `Pokazuję dokładnie ID ${state.searchQuery}. Filtr collection jest pomijany. ${sortText}.`;
+      `Pokazuję dokładnie ID ${state.searchQuery}. Filtry roku i collection są pomijane. ${sortText}.`;
     return;
   }
 
@@ -159,17 +191,18 @@ function updateResultsHint() {
         ? `motyw ${activeGroup.label}`
         : `kampanię ${activeGroup.label}`;
     elements.resultsHint.textContent =
-      `Pokazuję tylko ${groupLabel} i przewijam do tej grupy. ${sortText}.`;
+      `${yearText}Pokazuję tylko ${groupLabel} i przewijam do tej grupy. ${sortText}.`;
     return;
   }
 
   if (state.selectedCollectionType) {
     elements.resultsHint.textContent =
-      `Pokazuję grupy tylko dla ${state.selectedCollectionType}. ${sortText}.`;
+      `${yearText}Pokazuję grupy tylko dla ${state.selectedCollectionType}. ${sortText}.`;
     return;
   }
 
-  elements.resultsHint.textContent = `Najpierw grupy z tagów collection, potem reszta ID. ${sortText}.`;
+  elements.resultsHint.textContent =
+    `${yearText}Najpierw grupy z tagów collection, potem reszta ID. ${sortText}.`;
 }
 
 function getConnectionHelp() {
@@ -268,6 +301,7 @@ function compareItems(left, right, sortOrder, groupFirst = true) {
 function getFilteredItems({
   ids = [],
   searchQuery = "",
+  year = "",
   collectionType = "",
   groupKey = "",
   sortOrder = "desc",
@@ -284,10 +318,16 @@ function getFilteredItems({
 
   if (normalizedSearch) {
     items = items.filter((item) => String(item.id) === normalizedSearch);
-  } else if (groupKey) {
-    items = items.filter((item) => item?.collectionGroup?.sortKey === groupKey);
-  } else if (collectionType) {
-    items = items.filter((item) => item?.collectionGroup?.type === collectionType);
+  } else {
+    if (year) {
+      items = items.filter((item) => getItemYear(item) === year);
+    }
+
+    if (groupKey) {
+      items = items.filter((item) => item?.collectionGroup?.sortKey === groupKey);
+    } else if (collectionType) {
+      items = items.filter((item) => item?.collectionGroup?.type === collectionType);
+    }
   }
 
   return [...items].sort((left, right) =>
@@ -343,10 +383,11 @@ async function fetchJson(url) {
     const requestUrl = new URL(url, window.location.origin);
     const offset = Number.parseInt(requestUrl.searchParams.get("offset") || "0", 10);
     const limit = Number.parseInt(requestUrl.searchParams.get("limit") || String(BATCH_SIZE), 10);
+    const year = normalizeSupportedYear(requestUrl.searchParams.get("year") || "");
     const collectionType = requestUrl.searchParams.get("collectionType") || "";
     const groupKey = requestUrl.searchParams.get("groupKey") || "";
     const sortOrder = requestUrl.searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
-    const items = getFilteredItems({ collectionType, groupKey, sortOrder });
+    const items = getFilteredItems({ year, collectionType, groupKey, sortOrder });
 
     return {
       total: items.length,
@@ -683,13 +724,53 @@ function populateGroupSelect(selectElement, entries, currentValue, defaultLabel)
   defaultOption.textContent = defaultLabel;
   selectElement.appendChild(defaultOption);
 
+  const entriesByYear = new Map(SUPPORTED_YEARS.map((year) => [year, []]));
+  const otherEntries = [];
+
   for (const entry of entries) {
-    const option = document.createElement("option");
-    option.value = entry.key;
-    option.textContent = `${entry.label} (${formatNumber(entry.count)})`;
-    option.title = entry.label;
-    selectElement.appendChild(option);
-    availableValues.add(entry.key);
+    const year = normalizeSupportedYear(entry.year);
+    if (year) {
+      entriesByYear.get(year).push(entry);
+    } else {
+      otherEntries.push(entry);
+    }
+  }
+
+  for (const year of SUPPORTED_YEARS) {
+    const yearEntries = entriesByYear.get(year) || [];
+    if (!yearEntries.length) {
+      continue;
+    }
+
+    const optgroup = document.createElement("optgroup");
+    optgroup.label = year;
+
+    for (const entry of yearEntries) {
+      const option = document.createElement("option");
+      option.value = entry.key;
+      option.textContent = `${entry.label} (${formatNumber(entry.count)})`;
+      option.title = entry.label;
+      optgroup.appendChild(option);
+      availableValues.add(entry.key);
+    }
+
+    selectElement.appendChild(optgroup);
+  }
+
+  if (otherEntries.length) {
+    const optgroup = document.createElement("optgroup");
+    optgroup.label = "Inne";
+
+    for (const entry of otherEntries) {
+      const option = document.createElement("option");
+      option.value = entry.key;
+      option.textContent = `${entry.label} (${formatNumber(entry.count)})`;
+      option.title = entry.label;
+      optgroup.appendChild(option);
+      availableValues.add(entry.key);
+    }
+
+    selectElement.appendChild(optgroup);
   }
 
   if (!availableValues.has(currentValue)) {
@@ -701,7 +782,42 @@ function populateGroupSelect(selectElement, entries, currentValue, defaultLabel)
   return currentValue;
 }
 
+function populateYearFilter() {
+  const counts = new Map(SUPPORTED_YEARS.map((year) => [year, 0]));
+  const catalogItems = Array.isArray(state.catalog?.items) ? state.catalog.items : [];
+
+  for (const item of catalogItems) {
+    const year = getItemYear(item);
+    if (counts.has(year)) {
+      counts.set(year, counts.get(year) + 1);
+    }
+  }
+
+  elements.yearFilter.replaceChildren();
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Wszystkie lata";
+  elements.yearFilter.appendChild(defaultOption);
+
+  for (const year of SUPPORTED_YEARS) {
+    const count = counts.get(year) || 0;
+    if (!count) {
+      continue;
+    }
+
+    const option = document.createElement("option");
+    option.value = year;
+    option.textContent = `${year} (${formatNumber(count)})`;
+    elements.yearFilter.appendChild(option);
+  }
+
+  elements.yearFilter.value = state.selectedYear;
+}
+
 function populateCollectionGroupJumpSelects() {
+  populateYearFilter();
+
   state.selectedThemeGroupKey = populateGroupSelect(
     elements.themeGroup,
     getCollectionGroupsByType("collection.theme"),
@@ -1101,6 +1217,7 @@ function buildCard(item) {
 
 function updateSummary() {
   const activeGroup = getActiveGroupEntry();
+  const yearText = state.selectedYear ? ` z roku ${state.selectedYear}` : "";
   const collectionText =
     !state.searchQuery && state.selectedCollectionType
       ? ` w ${state.selectedCollectionType}`
@@ -1109,7 +1226,7 @@ function updateSummary() {
   if (!state.totalAvailable) {
     elements.resultsLabel.textContent = state.searchQuery
       ? `Nie znaleziono ID ${state.searchQuery}.`
-      : `Brak elementów do wyświetlenia${collectionText}.`;
+      : `Brak elementów do wyświetlenia${yearText}${collectionText}.`;
     return;
   }
 
@@ -1119,7 +1236,7 @@ function updateSummary() {
   const groupText = activeGroup ? ` w grupie ${activeGroup.label}` : "";
 
   elements.resultsLabel.textContent =
-    `Widoczne ${formatNumber(state.renderedCount)} z ${formatNumber(state.totalAvailable)} elementów${collectionText}${groupText}${queryText}.`;
+    `Widoczne ${formatNumber(state.renderedCount)} z ${formatNumber(state.totalAvailable)} elementów${yearText}${collectionText}${groupText}${queryText}.`;
 }
 
 function syncLoadMoreButton() {
@@ -1241,6 +1358,9 @@ async function renderNextBatch(reset = false) {
       limit: String(BATCH_SIZE),
     });
 
+    if (state.selectedYear) {
+      params.set("year", state.selectedYear);
+    }
     if (state.selectedCollectionType) {
       params.set("collectionType", state.selectedCollectionType);
     }
@@ -1337,8 +1457,10 @@ function applyFilter(rawQuery) {
   elements.search.value = state.searchQuery;
 
   if (state.searchQuery) {
+    state.selectedYear = "";
     state.selectedThemeGroupKey = "";
     state.selectedCampaignGroupKey = "";
+    elements.yearFilter.value = "";
     elements.themeGroup.value = "";
     elements.campaignGroup.value = "";
   }
@@ -1364,9 +1486,15 @@ function applyGroupJump(groupType, groupKey) {
   if (groupKey) {
     state.selectedCollectionType = groupType;
     elements.collectionType.value = groupType;
+    const activeGroupEntries = getCollectionGroupsByType(groupType);
+    const activeGroup = activeGroupEntries.find((entry) => entry.key === groupKey) || null;
+    state.selectedYear = normalizeSupportedYear(activeGroup?.year);
+    elements.yearFilter.value = state.selectedYear;
   } else if (state.selectedCollectionType === groupType) {
     state.selectedCollectionType = "";
     elements.collectionType.value = "";
+    state.selectedYear = "";
+    elements.yearFilter.value = "";
   }
 
   updateResultsHint();
@@ -1420,6 +1548,16 @@ function wireEvents() {
     renderNextBatch(true);
   });
 
+  elements.yearFilter.addEventListener("change", (event) => {
+    state.selectedYear = normalizeSupportedYear(event.target.value);
+    state.selectedThemeGroupKey = "";
+    state.selectedCampaignGroupKey = "";
+    elements.themeGroup.value = "";
+    elements.campaignGroup.value = "";
+    updateResultsHint();
+    renderNextBatch(true);
+  });
+
   elements.themeGroup.addEventListener("change", (event) => {
     applyGroupJump("collection.theme", event.target.value);
   });
@@ -1436,10 +1574,12 @@ function wireEvents() {
 
   elements.clearSearch.addEventListener("click", () => {
     elements.search.value = "";
+    elements.yearFilter.value = "";
     elements.collectionType.value = "";
     elements.themeGroup.value = "";
     elements.campaignGroup.value = "";
     elements.sortOrder.value = "desc";
+    state.selectedYear = "";
     state.selectedCollectionType = "";
     state.selectedThemeGroupKey = "";
     state.selectedCampaignGroupKey = "";
