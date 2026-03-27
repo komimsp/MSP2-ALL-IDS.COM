@@ -10,7 +10,7 @@ const LANGUAGE_STORAGE_KEY = "uiLanguage";
 const UI_TEXT = {
   pl: {
     pageTitle: "MSP2 PNG Archive",
-    pageDescription: "Statyczna przeglądarka PNG i metadanych MSP2 hostowana z GitHub Pages.",
+    pageDescription: "",
     heroTitle: "Archiwum ID przedmiotów",
     heroCopy:
       "Strona korzysta z obrazów z repozytorium komimsp/msp2_PNG oraz metadanych z komimsp/msp2_json_ids. Nazwa pliku PNG jest traktowana jako ID przedmiotu, a katalog działa bez lokalnego backendu.",
@@ -130,7 +130,7 @@ const UI_TEXT = {
   },
   en: {
     pageTitle: "MSP2 PNG Archive",
-    pageDescription: "Static MSP2 PNG and metadata browser hosted on GitHub Pages.",
+    pageDescription: "",
     heroTitle: "Item ID archive",
     heroCopy:
       "This page uses images from the komimsp/msp2_PNG repository and metadata from komimsp/msp2_json_ids. The PNG filename is treated as the item ID and the catalog runs without a local backend.",
