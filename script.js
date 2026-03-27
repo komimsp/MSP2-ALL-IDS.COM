@@ -6,11 +6,253 @@ const SPECIAL_ITEM_TYPE_LABELS = {
   tag_clothes: "tag_clothes",
   tag_beauty: "TAG_BEAUTY",
 };
+const LANGUAGE_STORAGE_KEY = "uiLanguage";
+const UI_TEXT = {
+  pl: {
+    pageTitle: "MSP2 PNG Archive",
+    pageDescription: "Statyczna przeglądarka PNG i metadanych MSP2 hostowana z GitHub Pages.",
+    heroTitle: "Archiwum ID przedmiotów",
+    heroCopy:
+      "Strona korzysta z obrazów z repozytorium komimsp/msp2_PNG oraz metadanych z komimsp/msp2_json_ids. Nazwa pliku PNG jest traktowana jako ID przedmiotu, a katalog działa bez lokalnego backendu.",
+    repoStatsLoading: "Ładowanie danych z repozytorium...",
+    openPngRepo: "Otwórz repo z PNG",
+    openJsonRepo: "Otwórz repo z JSON",
+    toolbarAria: "Filtrowanie katalogu",
+    searchLabel: "Wyszukaj ID",
+    searchPlaceholder: "Wpisz ID, np. 15274",
+    searchButton: "Szukaj ID",
+    yearLabel: "Lata",
+    itemTypeLabel: "Type",
+    collectionTypeLabel: "Typ collection",
+    themeGroupLabel: "Motywy",
+    campaignGroupLabel: "Kampanie",
+    sortLabel: "Sortowanie ID",
+    clearButton: "Wyczyść",
+    sortAsc: "Od najmniejszych do największych",
+    sortDesc: "Od największych do najmniejszych",
+    resultsPreparing: "Przygotowuję katalog...",
+    resultsInitialHint: "Wpisz konkretne ID i kliknij lupę albo Enter",
+    scanPanelAria: "Status katalogu",
+    scanMode: "Tryb",
+    scanRange: "Zakres ID",
+    scanMetadata: "Metadane",
+    scanGenerated: "Wygenerowano",
+    statusLoading: "Ładowanie listy obrazów i metadanych...",
+    emptyTitle: "Brak wyników",
+    emptyCopy: "Spróbuj wpisać krótszy fragment ID albo wyczyść filtr.",
+    itemsAria: "Lista przedmiotów",
+    loadMore: "Załaduj kolejne ID",
+    genderAria: "Płeć przedmiotu",
+    specialAria: "Status specjalny przedmiotu",
+    downloadImage: "Pobierz obraz",
+    zoomImage: "Powiększ obraz",
+    rotateImage: "Obróć obraz",
+    metaLabelName: "Nazwa",
+    metaLabelType: "Type",
+    metaLabelCreated: "Created",
+    metaLabelModified: "Modified",
+    metaLabelNameRi: "Name RI",
+    metaLabelGraphicsRi: "Graphics RI",
+    metaLabelCollectionKey: "Collection Key",
+    metaLabelCollectionLookup: "Collection LookUpId",
+    metaLabelCollectionType: "Collection Type",
+    metaTitleColors: "Kolory",
+    metaTitleTags: "Tagi",
+    imagePreview: "Podgląd obrazu",
+    closeModal: "Zamknij modal",
+    imageModalNote: "PNG z aktualnym obrotem podglądu.",
+    openPng: "Otwórz PNG",
+    allCollections: "Wszystkie collection",
+    allTypes: "Wszystkie type",
+    allThemes: "Wszystkie motywy",
+    allCampaigns: "Wszystkie kampanie",
+    otherOptionGroup: "Inne",
+    otherIds: "Pozostałe ID",
+    noCollectionInfo: "Brak tagu collection albo dane tego ID nie są jeszcze zeskanowane.",
+    noResourceIdentifiers: "Brak resourceIdentifiers.",
+    tagLabel: "Tag {index}",
+    boy: "Chłopak",
+    girl: "Dziewczyna",
+    connectionHelpFile:
+      "Ta strona nie działa bezpośrednio z pliku index.html. Otwórz ją przez GitHub Pages albo lokalny serwer HTTP.",
+    connectionHelpDefault: "Nie udało się wczytać katalogu statycznego z repozytorium.",
+    unsupportedDataUrl: "Nieobsługiwany adres danych: {url}",
+    imageLoadError: "Nie udało się załadować obrazu {src}",
+    jsonFetchError: "Nie udało się pobrać JSON dla ID {id}.",
+    jsonStatusError: "JSON ID {id} zwrócił HTTP {status}.",
+    invalidImageDimensions: "Obraz ID {id} nie ma poprawnych wymiarów.",
+    canvasUnavailable: "Przeglądarka nie udostępnia canvas 2D.",
+    pngPrepareError: "Nie udało się przygotować pliku PNG do pobrania.",
+    zoomedPreviewAlt: "Powiększony podgląd przedmiotu {id}",
+    previewAlt: "Podgląd przedmiotu {id}",
+    fullJsonLoaded: "Pełny JSON tego ID został doładowany.",
+    catalogExcerpt: "Skrócone dane z katalogu. Rozwiń kartę, aby doładować pełny JSON.",
+    dataNotLoaded: "Dane dla tego ID nie są jeszcze pobrane.",
+    noColors: "Brak kolorów.",
+    expandForTags: "Rozwiń kartę, aby doładować pełne tagi z JSON.",
+    noTags: "Brak tagów.",
+    downloadSuccess: "Pobrano PNG dla ID {id}.",
+    downloadFailure: "Nie udało się pobrać ID {id}: {message}",
+    itemsFetchFailure: "Nie udało się pobrać listy elementów: {message}",
+    repoStatsText: "{totalImages} obrazów PNG, {cachedItemsCount} JSON, zakres ID {minId} -> {maxId}.",
+    staticCatalog: "Katalog statyczny",
+    metadataProgress: "{cachedItemsCount} / {totalItems} rekordów z metadanymi",
+    catalogReady:
+      "Katalog statyczny gotowy. Strona działa bez backendu i nadaje się do hostowania na GitHub Pages.",
+    catalogFetchFailure: "Nie udało się pobrać katalogu: {message}",
+    noData: "Brak danych",
+    exactIdHint:
+      "Pokazuję dokładnie ID {id}. Układ lat nie zmienia pojedynczego wyniku. {sortText}.",
+    themeGroupPhrase: "motyw {label}",
+    campaignGroupPhrase: "kampanię {label}",
+    groupHint:
+      "Lata {yearOrder}. Pokazuję tylko {groupLabel}{itemTypeText} i przewijam do tej grupy. {sortText}.",
+    collectionHint:
+      "Lata {yearOrder}. Pokazuję grupy tylko dla {collectionType}{itemTypeText}. {sortText}.",
+    itemTypeHint: "Lata {yearOrder}. Pokazuję tylko ID z type {itemType}. {sortText}.",
+    defaultHint: "Lata {yearOrder}. Najpierw grupy z tagów collection, potem reszta ID. {sortText}.",
+    noResultsForId: "Nie znaleziono ID {id}.",
+    noResultsDefault: "Brak elementów do wyświetlenia{yearText}{itemTypeText}{collectionText}.",
+    resultsVisible:
+      "Widoczne {renderedCount} z {totalAvailable} elementów{yearText}{itemTypeText}{collectionText}{groupText}{queryText}.",
+    queryText: " dla dokładnego ID {id}",
+    groupText: " w grupie {label}",
+    yearText: " w układzie lat {yearOrder}",
+    itemTypeText: " dla type {itemType}",
+    collectionText: " w {collectionType}",
+    fileMode: "Tryb pliku",
+    openAppHelp: "Otwórz aplikację przez GitHub Pages albo lokalny serwer HTTP.",
+    fileResultsFailure: "Katalog statyczny nie może zostać wczytany z file://.",
+    bootstrapFailure: "Nie udało się uruchomić strony: {message}",
+    languagePolish: "Polski",
+    languageEnglish: "English",
+    languageChooser: "Wybór języka",
+  },
+  en: {
+    pageTitle: "MSP2 PNG Archive",
+    pageDescription: "Static MSP2 PNG and metadata browser hosted on GitHub Pages.",
+    heroTitle: "Item ID archive",
+    heroCopy:
+      "This page uses images from the komimsp/msp2_PNG repository and metadata from komimsp/msp2_json_ids. The PNG filename is treated as the item ID and the catalog runs without a local backend.",
+    repoStatsLoading: "Loading repository data...",
+    openPngRepo: "Open PNG repo",
+    openJsonRepo: "Open JSON repo",
+    toolbarAria: "Catalog filters",
+    searchLabel: "Search ID",
+    searchPlaceholder: "Enter ID, e.g. 15274",
+    searchButton: "Search ID",
+    yearLabel: "Years",
+    itemTypeLabel: "Type",
+    collectionTypeLabel: "Collection type",
+    themeGroupLabel: "Themes",
+    campaignGroupLabel: "Campaigns",
+    sortLabel: "ID sorting",
+    clearButton: "Clear",
+    sortAsc: "From smallest to largest",
+    sortDesc: "From largest to smallest",
+    resultsPreparing: "Preparing catalog...",
+    resultsInitialHint: "Enter a specific ID and click the search icon or press Enter",
+    scanPanelAria: "Catalog status",
+    scanMode: "Mode",
+    scanRange: "ID range",
+    scanMetadata: "Metadata",
+    scanGenerated: "Generated",
+    statusLoading: "Loading image and metadata list...",
+    emptyTitle: "No results",
+    emptyCopy: "Try a shorter ID fragment or clear the filter.",
+    itemsAria: "Items list",
+    loadMore: "Load more IDs",
+    genderAria: "Item gender",
+    specialAria: "Special item status",
+    downloadImage: "Download image",
+    zoomImage: "Zoom image",
+    rotateImage: "Rotate image",
+    metaLabelName: "Name",
+    metaLabelType: "Type",
+    metaLabelCreated: "Created",
+    metaLabelModified: "Modified",
+    metaLabelNameRi: "Name RI",
+    metaLabelGraphicsRi: "Graphics RI",
+    metaLabelCollectionKey: "Collection Key",
+    metaLabelCollectionLookup: "Collection LookUpId",
+    metaLabelCollectionType: "Collection Type",
+    metaTitleColors: "Colors",
+    metaTitleTags: "Tags",
+    imagePreview: "Image preview",
+    closeModal: "Close modal",
+    imageModalNote: "PNG with the current preview rotation.",
+    openPng: "Open PNG",
+    allCollections: "All collections",
+    allTypes: "All types",
+    allThemes: "All themes",
+    allCampaigns: "All campaigns",
+    otherOptionGroup: "Other",
+    otherIds: "Other IDs",
+    noCollectionInfo: "No collection tag or this ID metadata has not been indexed yet.",
+    noResourceIdentifiers: "No resourceIdentifiers.",
+    tagLabel: "Tag {index}",
+    boy: "Boy",
+    girl: "Girl",
+    connectionHelpFile:
+      "This page does not work directly from the index.html file. Open it through GitHub Pages or a local HTTP server.",
+    connectionHelpDefault: "Could not load the static catalog from the repository.",
+    unsupportedDataUrl: "Unsupported data URL: {url}",
+    imageLoadError: "Could not load image {src}",
+    jsonFetchError: "Could not fetch JSON for ID {id}.",
+    jsonStatusError: "JSON for ID {id} returned HTTP {status}.",
+    invalidImageDimensions: "Image ID {id} has invalid dimensions.",
+    canvasUnavailable: "The browser does not provide a 2D canvas.",
+    pngPrepareError: "Could not prepare the PNG file for download.",
+    zoomedPreviewAlt: "Zoomed preview of item {id}",
+    previewAlt: "Preview of item {id}",
+    fullJsonLoaded: "Full JSON for this ID has been loaded.",
+    catalogExcerpt: "Short data from the catalog. Expand the card to load the full JSON.",
+    dataNotLoaded: "Data for this ID has not been loaded yet.",
+    noColors: "No colors.",
+    expandForTags: "Expand the card to load full tags from JSON.",
+    noTags: "No tags.",
+    downloadSuccess: "Downloaded PNG for ID {id}.",
+    downloadFailure: "Could not download ID {id}: {message}",
+    itemsFetchFailure: "Could not fetch the items list: {message}",
+    repoStatsText: "{totalImages} PNG images, {cachedItemsCount} JSON, ID range {minId} -> {maxId}.",
+    staticCatalog: "Static catalog",
+    metadataProgress: "{cachedItemsCount} / {totalItems} records with metadata",
+    catalogReady: "Static catalog ready. The page runs without a backend and can be hosted on GitHub Pages.",
+    catalogFetchFailure: "Could not fetch the catalog: {message}",
+    noData: "No data",
+    exactIdHint: "Showing exact ID {id}. Year order does not change a single result. {sortText}.",
+    themeGroupPhrase: "theme {label}",
+    campaignGroupPhrase: "campaign {label}",
+    groupHint:
+      "Years {yearOrder}. Showing only {groupLabel}{itemTypeText} and scrolling to that group. {sortText}.",
+    collectionHint:
+      "Years {yearOrder}. Showing groups only for {collectionType}{itemTypeText}. {sortText}.",
+    itemTypeHint: "Years {yearOrder}. Showing only IDs with type {itemType}. {sortText}.",
+    defaultHint: "Years {yearOrder}. Collection tag groups first, then the remaining IDs. {sortText}.",
+    noResultsForId: "ID {id} was not found.",
+    noResultsDefault: "No items to display{yearText}{itemTypeText}{collectionText}.",
+    resultsVisible:
+      "Visible {renderedCount} of {totalAvailable} items{yearText}{itemTypeText}{collectionText}{groupText}{queryText}.",
+    queryText: " for exact ID {id}",
+    groupText: " in group {label}",
+    yearText: " in year order {yearOrder}",
+    itemTypeText: " for type {itemType}",
+    collectionText: " in {collectionType}",
+    fileMode: "File mode",
+    openAppHelp: "Open the app through GitHub Pages or a local HTTP server.",
+    fileResultsFailure: "The static catalog cannot be loaded from file://.",
+    bootstrapFailure: "Could not start the page: {message}",
+    languagePolish: "Polski",
+    languageEnglish: "English",
+    languageChooser: "Language selector",
+  },
+};
 
 const state = {
   renderedCount: 0,
   totalAvailable: 0,
   searchQuery: "",
+  language: "pl",
   selectedYearOrder: "desc",
   selectedItemType: "",
   selectedCollectionType: "",
@@ -25,20 +267,38 @@ const state = {
 };
 
 const elements = {
+  pageDescription: document.querySelector('meta[name="description"]'),
+  hero: document.querySelector(".hero"),
+  heroTitle: document.getElementById("hero-title"),
+  heroCopy: document.getElementById("hero-copy"),
+  heroLinkPng: document.getElementById("hero-link-png"),
+  heroLinkJson: document.getElementById("hero-link-json"),
+  langButtons: document.querySelector(".lang-buttons"),
+  langPl: document.getElementById("lang-pl"),
+  langEn: document.getElementById("lang-en"),
   repoStats: document.getElementById("repo-stats"),
   resultsLabel: document.getElementById("results-label"),
   statusMessage: document.getElementById("status-message"),
   search: document.getElementById("search"),
   showId: document.getElementById("show-id"),
+  searchLabel: document.getElementById("search-label"),
   yearFilter: document.getElementById("year-filter"),
+  yearLabel: document.getElementById("year-label"),
   itemType: document.getElementById("item-type"),
+  itemTypeLabel: document.getElementById("item-type-label"),
   collectionType: document.getElementById("collection-type"),
+  collectionTypeLabel: document.getElementById("collection-type-label"),
   themeGroup: document.getElementById("theme-group"),
+  themeGroupLabel: document.getElementById("theme-group-label"),
   campaignGroup: document.getElementById("campaign-group"),
+  campaignGroupLabel: document.getElementById("campaign-group-label"),
   sortOrder: document.getElementById("sort-order"),
+  sortOrderLabel: document.getElementById("sort-order-label"),
   clearSearch: document.getElementById("clear-search"),
   items: document.getElementById("items"),
   emptyState: document.getElementById("empty-state"),
+  emptyTitle: document.getElementById("empty-title"),
+  emptyCopy: document.getElementById("empty-copy"),
   loadMore: document.getElementById("load-more"),
   sentinel: document.getElementById("sentinel"),
   template: document.getElementById("item-template"),
@@ -46,13 +306,148 @@ const elements = {
   scanRange: document.getElementById("scan-range"),
   scanProgress: document.getElementById("scan-progress"),
   scanNextRun: document.getElementById("scan-next-run"),
+  scanLabelState: document.getElementById("scan-label-state"),
+  scanLabelRange: document.getElementById("scan-label-range"),
+  scanLabelProgress: document.getElementById("scan-label-progress"),
+  scanLabelGenerated: document.getElementById("scan-label-generated"),
   resultsHint: document.getElementById("results-hint"),
   imageModal: document.getElementById("image-modal"),
   imageModalImg: document.getElementById("image-modal-img"),
   imageModalId: document.getElementById("image-modal-id"),
   imageModalLink: document.getElementById("image-modal-link"),
+  imageModalNote: document.getElementById("image-modal-note"),
   imageModalClose: document.getElementById("image-modal-close"),
 };
+
+function getPreferredLanguage() {
+  const storedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  if (storedLanguage === "pl" || storedLanguage === "en") {
+    return storedLanguage;
+  }
+
+  return String(navigator.language || "").toLowerCase().startsWith("pl") ? "pl" : "en";
+}
+
+function t(key, variables = {}) {
+  const dictionary = UI_TEXT[state.language] || UI_TEXT.pl;
+  const fallbackDictionary = UI_TEXT.pl;
+  const template = dictionary[key] ?? fallbackDictionary[key] ?? key;
+
+  return Object.entries(variables).reduce((text, [name, value]) => {
+    return text.replaceAll(`{${name}}`, String(value ?? ""));
+  }, template);
+}
+
+function updateLanguageButtons() {
+  const isPolish = state.language === "pl";
+  elements.langPl.classList.toggle("is-active", isPolish);
+  elements.langPl.setAttribute("aria-pressed", isPolish ? "true" : "false");
+  elements.langEn.classList.toggle("is-active", !isPolish);
+  elements.langEn.setAttribute("aria-pressed", !isPolish ? "true" : "false");
+}
+
+function applyStaticTranslations() {
+  document.documentElement.lang = state.language;
+  document.title = t("pageTitle");
+  if (elements.pageDescription) {
+    elements.pageDescription.setAttribute("content", t("pageDescription"));
+  }
+
+  elements.langButtons.setAttribute("aria-label", t("languageChooser"));
+  elements.langPl.querySelector("span").textContent = t("languagePolish");
+  elements.langEn.querySelector("span").textContent = t("languageEnglish");
+  elements.langPl.querySelector("img")?.setAttribute("alt", t("languagePolish"));
+  elements.langEn.querySelector("img")?.setAttribute("alt", t("languageEnglish"));
+  elements.langPl.setAttribute("aria-label", t("languagePolish"));
+  elements.langEn.setAttribute("aria-label", t("languageEnglish"));
+  elements.heroTitle.textContent = t("heroTitle");
+  elements.heroCopy.innerHTML =
+    `${t("heroCopy").replace("komimsp/msp2_PNG", '<a href="https://github.com/komimsp/msp2_PNG" target="_blank" rel="noreferrer">komimsp/msp2_PNG</a>').replace("komimsp/msp2_json_ids", '<a href="https://github.com/komimsp/msp2_json_ids" target="_blank" rel="noreferrer">komimsp/msp2_json_ids</a>')}`;
+  elements.repoStats.textContent = t("repoStatsLoading");
+  elements.heroLinkPng.textContent = t("openPngRepo");
+  elements.heroLinkJson.textContent = t("openJsonRepo");
+  document.querySelector(".toolbar")?.setAttribute("aria-label", t("toolbarAria"));
+  elements.searchLabel.textContent = t("searchLabel");
+  elements.search.placeholder = t("searchPlaceholder");
+  elements.showId.setAttribute("aria-label", t("searchButton"));
+  elements.showId.setAttribute("title", t("searchButton"));
+  elements.yearLabel.textContent = t("yearLabel");
+  elements.itemTypeLabel.textContent = t("itemTypeLabel");
+  elements.collectionTypeLabel.textContent = t("collectionTypeLabel");
+  elements.themeGroupLabel.textContent = t("themeGroupLabel");
+  elements.campaignGroupLabel.textContent = t("campaignGroupLabel");
+  elements.sortOrderLabel.textContent = t("sortLabel");
+  if (elements.sortOrder.options[0]) {
+    elements.sortOrder.options[0].textContent = t("sortDesc");
+  }
+  if (elements.sortOrder.options[1]) {
+    elements.sortOrder.options[1].textContent = t("sortAsc");
+  }
+  elements.clearSearch.textContent = t("clearButton");
+  if (!state.catalog) {
+    elements.resultsLabel.textContent = t("resultsPreparing");
+    elements.resultsHint.textContent = t("resultsInitialHint");
+  }
+  document.querySelector(".scan-panel")?.setAttribute("aria-label", t("scanPanelAria"));
+  elements.scanLabelState.textContent = t("scanMode");
+  elements.scanLabelRange.textContent = t("scanRange");
+  elements.scanLabelProgress.textContent = t("scanMetadata");
+  elements.scanLabelGenerated.textContent = t("scanGenerated");
+  if (!elements.statusMessage.textContent || elements.statusMessage.textContent === UI_TEXT.pl.statusLoading || elements.statusMessage.textContent === UI_TEXT.en.statusLoading) {
+    elements.statusMessage.textContent = t("statusLoading");
+  }
+  elements.emptyTitle.textContent = t("emptyTitle");
+  elements.emptyCopy.textContent = t("emptyCopy");
+  elements.items.setAttribute("aria-label", t("itemsAria"));
+  elements.loadMore.textContent = t("loadMore");
+  if (
+    !elements.imageModalId.textContent ||
+    elements.imageModalId.textContent === UI_TEXT.pl.imagePreview ||
+    elements.imageModalId.textContent === UI_TEXT.en.imagePreview
+  ) {
+    elements.imageModalId.textContent = t("imagePreview");
+  }
+  elements.imageModalClose.setAttribute("aria-label", t("closeModal"));
+  elements.imageModalNote.textContent = t("imageModalNote");
+  if (elements.imageModalLink.getAttribute("href") === "#") {
+    elements.imageModalLink.textContent = t("openPng");
+  }
+
+  const templateRoot = elements.template.content;
+  templateRoot.querySelector(".item-gender-markers")?.setAttribute("aria-label", t("genderAria"));
+  templateRoot.querySelector(".item-special-badges")?.setAttribute("aria-label", t("specialAria"));
+  templateRoot.querySelector(".item-download")?.setAttribute("aria-label", t("downloadImage"));
+  templateRoot.querySelector(".item-zoom")?.setAttribute("aria-label", t("zoomImage"));
+  templateRoot.querySelector(".item-rotate")?.setAttribute("aria-label", t("rotateImage"));
+  templateRoot.querySelector(".meta-label-name").textContent = t("metaLabelName");
+  templateRoot.querySelector(".meta-label-type").textContent = t("metaLabelType");
+  templateRoot.querySelector(".meta-label-created").textContent = t("metaLabelCreated");
+  templateRoot.querySelector(".meta-label-modified").textContent = t("metaLabelModified");
+  templateRoot.querySelector(".meta-label-name-ri").textContent = t("metaLabelNameRi");
+  templateRoot.querySelector(".meta-label-graphics-ri").textContent = t("metaLabelGraphicsRi");
+  templateRoot.querySelector(".meta-label-collection-key").textContent = t("metaLabelCollectionKey");
+  templateRoot.querySelector(".meta-label-collection-lookup").textContent = t("metaLabelCollectionLookup");
+  templateRoot.querySelector(".meta-label-collection-type").textContent = t("metaLabelCollectionType");
+  templateRoot.querySelector(".meta-title-colors").textContent = t("metaTitleColors");
+  templateRoot.querySelector(".meta-title-tags").textContent = t("metaTitleTags");
+}
+
+async function applyLanguage(language, rerender = true) {
+  const nextLanguage = language === "en" ? "en" : "pl";
+  state.language = nextLanguage;
+  localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
+  updateLanguageButtons();
+  applyStaticTranslations();
+
+  if (!state.catalog) {
+    return;
+  }
+
+  await refreshStatus();
+  if (rerender) {
+    await renderNextBatch(true);
+  }
+}
 
 function formatNumber(value) {
   return new Intl.NumberFormat("pl-PL").format(value);
@@ -142,9 +537,7 @@ function getSelectedItemTypeLabel(itemType = state.selectedItemType) {
 }
 
 function formatSortOrderLabel(sortOrder) {
-  return sortOrder === "asc"
-    ? "ID od najmniejszych do największych"
-    : "ID od największych do najmniejszych";
+  return sortOrder === "asc" ? t("sortAsc") : t("sortDesc");
 }
 
 function normalizeYearOrder(value) {
@@ -243,48 +636,53 @@ function getActiveGroupEntry() {
 function updateResultsHint() {
   const sortText = formatSortOrderLabel(state.selectedSortOrder);
   const activeGroup = getActiveGroupEntry();
-  const yearText = `Lata ${getYearOrderLabel()}. `;
+  const yearOrder = getYearOrderLabel();
   const selectedItemTypeLabel = getSelectedItemTypeLabel();
-  const itemTypeText = selectedItemTypeLabel ? ` i type ${selectedItemTypeLabel}` : "";
+  const itemTypeText = selectedItemTypeLabel ? t("itemTypeText", { itemType: selectedItemTypeLabel }) : "";
 
   if (state.searchQuery) {
     elements.resultsHint.textContent =
-      `Pokazuję dokładnie ID ${state.searchQuery}. Układ lat nie zmienia pojedynczego wyniku. ${sortText}.`;
+      t("exactIdHint", { id: state.searchQuery, sortText });
     return;
   }
 
   if (activeGroup) {
     const groupLabel =
       state.selectedThemeGroupKey
-        ? `motyw ${activeGroup.label}`
-        : `kampanię ${activeGroup.label}`;
+        ? t("themeGroupPhrase", { label: activeGroup.label })
+        : t("campaignGroupPhrase", { label: activeGroup.label });
     elements.resultsHint.textContent =
-      `${yearText}Pokazuję tylko ${groupLabel}${itemTypeText} i przewijam do tej grupy. ${sortText}.`;
+      t("groupHint", { yearOrder, groupLabel, itemTypeText, sortText });
     return;
   }
 
   if (state.selectedCollectionType) {
     elements.resultsHint.textContent =
-      `${yearText}Pokazuję grupy tylko dla ${state.selectedCollectionType}${itemTypeText}. ${sortText}.`;
+      t("collectionHint", {
+        yearOrder,
+        collectionType: state.selectedCollectionType,
+        itemTypeText,
+        sortText,
+      });
     return;
   }
 
   if (state.selectedItemType) {
     elements.resultsHint.textContent =
-      `${yearText}Pokazuję tylko ID z type ${selectedItemTypeLabel}. ${sortText}.`;
+      t("itemTypeHint", { yearOrder, itemType: selectedItemTypeLabel, sortText });
     return;
   }
 
   elements.resultsHint.textContent =
-    `${yearText}Najpierw grupy z tagów collection, potem reszta ID. ${sortText}.`;
+    t("defaultHint", { yearOrder, sortText });
 }
 
 function getConnectionHelp() {
   if (window.location.protocol === "file:") {
-    return "Ta strona nie działa bezpośrednio z pliku `index.html`. Otwórz ją przez GitHub Pages albo lokalny serwer HTTP.";
+    return t("connectionHelpFile");
   }
 
-  return "Nie udało się wczytać katalogu statycznego z repozytorium.";
+  return t("connectionHelpDefault");
 }
 
 function getStaticCollectionTypes(items) {
@@ -509,7 +907,7 @@ async function fetchJson(url) {
     };
   }
 
-  throw new Error(`Nieobsługiwany adres danych: ${url}`);
+  throw new Error(t("unsupportedDataUrl", { url }));
 }
 
 function ensureMetaCollection(container, emptyText) {
@@ -583,7 +981,7 @@ function buildTagDetails(tag, index) {
 
   const summaryHint = document.createElement("span");
   summaryHint.className = "tag-summary-hint";
-  summaryHint.textContent = `Tag ${index + 1}`;
+  summaryHint.textContent = t("tagLabel", { index: index + 1 });
 
   summary.append(summaryText, summaryHint);
 
@@ -608,7 +1006,7 @@ function buildTagDetails(tag, index) {
   } else {
     const empty = document.createElement("span");
     empty.className = "meta-empty";
-    empty.textContent = "Brak resourceIdentifiers.";
+    empty.textContent = t("noResourceIdentifiers");
     resourceSection.append(empty);
   }
 
@@ -757,11 +1155,11 @@ function renderGenderMarkers(container, metadata) {
   const markers = [];
 
   if (genderInfo.boy) {
-    markers.push(buildGenderMarker("♂", "Boy", "is-boy"));
+    markers.push(buildGenderMarker("♂", t("boy"), "is-boy"));
   }
 
   if (genderInfo.girl) {
-    markers.push(buildGenderMarker("♀", "Girl", "is-girl"));
+    markers.push(buildGenderMarker("♀", t("girl"), "is-girl"));
   }
 
   if (markers.length) {
@@ -808,7 +1206,7 @@ function populateCollectionTypes(collectionTypes) {
 
   const allOption = document.createElement("option");
   allOption.value = "";
-  allOption.textContent = "Wszystkie collection";
+  allOption.textContent = t("allCollections");
   elements.collectionType.appendChild(allOption);
 
   for (const entry of normalizedTypes) {
@@ -838,7 +1236,7 @@ function populateItemTypes(itemTypes) {
 
   const allOption = document.createElement("option");
   allOption.value = "";
-  allOption.textContent = "Wszystkie type";
+  allOption.textContent = t("allTypes");
   elements.itemType.appendChild(allOption);
 
   for (const entry of normalizedTypes) {
@@ -903,7 +1301,7 @@ function populateGroupSelect(selectElement, entries, currentValue, defaultLabel)
 
   if (otherEntries.length) {
     const optgroup = document.createElement("optgroup");
-    optgroup.label = "Inne";
+    optgroup.label = t("otherOptionGroup");
 
     for (const entry of otherEntries) {
       const option = document.createElement("option");
@@ -948,14 +1346,14 @@ function populateCollectionGroupJumpSelects() {
     elements.themeGroup,
     getCollectionGroupsByType("collection.theme"),
     state.selectedThemeGroupKey,
-    "Wszystkie motywy"
+    t("allThemes")
   );
 
   state.selectedCampaignGroupKey = populateGroupSelect(
     elements.campaignGroup,
     getCollectionGroupsByType("collection.campaign"),
     state.selectedCampaignGroupKey,
-    "Wszystkie kampanie"
+    t("allCampaigns")
   );
 }
 
@@ -971,7 +1369,7 @@ function buildGroupSeparator(item) {
 
   const title = document.createElement("p");
   title.className = "group-separator-title";
-  title.textContent = group ? group.label : "Pozostałe ID";
+  title.textContent = group ? group.label : t("otherIds");
 
   const meta = document.createElement("p");
   meta.className = "group-separator-meta";
@@ -981,7 +1379,7 @@ function buildGroupSeparator(item) {
       .filter(Boolean)
       .join(" · ");
   } else {
-    meta.textContent = "Brak tagu collection albo dane tego ID nie są jeszcze zeskanowane.";
+    meta.textContent = t("noCollectionInfo");
   }
 
   separator.append(title, meta);
@@ -1005,7 +1403,7 @@ function loadImageElement(src) {
     const image = new Image();
     image.decoding = "async";
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Nie udało się załadować obrazu ${src}`));
+    image.onerror = () => reject(new Error(t("imageLoadError", { src })));
     image.src = src;
   });
 }
@@ -1039,11 +1437,11 @@ async function ensureFullItemMetadata(item, card = null) {
       cache: "force-cache",
     });
   } catch (error) {
-    throw new Error(`Nie udało się pobrać JSON dla ID ${item.id}.`);
+    throw new Error(t("jsonFetchError", { id: item.id }));
   }
 
   if (!response.ok) {
-    throw new Error(`JSON ID ${item.id} zwrócił HTTP ${response.status}.`);
+    throw new Error(t("jsonStatusError", { id: item.id, status: response.status }));
   }
 
   const payload = await response.json();
@@ -1090,7 +1488,7 @@ async function downloadRotatedImage(item, image) {
   const sourceHeight = sourceImage.naturalHeight || sourceImage.height;
 
   if (!sourceWidth || !sourceHeight) {
-    throw new Error(`Obraz ID ${item.id} nie ma poprawnych wymiarów.`);
+    throw new Error(t("invalidImageDimensions", { id: item.id }));
   }
 
   const normalizedRotation = ((rotation % 360) + 360) % 360;
@@ -1101,7 +1499,7 @@ async function downloadRotatedImage(item, image) {
 
   const context = canvas.getContext("2d");
   if (!context) {
-    throw new Error("Przeglądarka nie udostępnia canvas 2D.");
+    throw new Error(t("canvasUnavailable"));
   }
 
   context.imageSmoothingEnabled = true;
@@ -1117,7 +1515,7 @@ async function downloadRotatedImage(item, image) {
   });
 
   if (!blob) {
-    throw new Error("Nie udało się przygotować pliku PNG do pobrania.");
+    throw new Error(t("pngPrepareError"));
   }
 
   const objectUrl = URL.createObjectURL(blob);
@@ -1143,7 +1541,7 @@ function openImageModal(item) {
   elements.imageModal.classList.add("is-open");
   elements.imageModal.setAttribute("aria-hidden", "false");
   elements.imageModalImg.src = previewUrl;
-  elements.imageModalImg.alt = `Powiększony podgląd przedmiotu ${item.id}`;
+  elements.imageModalImg.alt = t("zoomedPreviewAlt", { id: item.id });
   elements.imageModalImg.style.transform = `rotate(${rotation}deg)`;
   elements.imageModalId.textContent = `ID ${item.id} · ${item.file}`;
   elements.imageModalLink.href = item.url;
@@ -1187,7 +1585,7 @@ function applyItemToCard(card, item) {
   image.dataset.remoteSrc = item.url || "";
   image.dataset.retryRemote = "";
   setCardImageState(card, "loading");
-  image.alt = `Podgląd przedmiotu ${item.id}`;
+  image.alt = t("previewAlt", { id: item.id });
   metaLink.href = item.url;
   metaLink.textContent = `PNG ${item.file}`;
   metaJsonLink.href = jsonUrl;
@@ -1216,9 +1614,9 @@ function applyItemToCard(card, item) {
 
   metaState.textContent = hasMetadata
     ? metadata?.fullJsonLoaded
-      ? "Pełny JSON tego ID został doładowany."
-      : "Skrócone dane z katalogu. Rozwiń kartę, aby doładować pełny JSON."
-    : scanNote || "Dane dla tego ID nie sa jeszcze pobrane.";
+      ? t("fullJsonLoaded")
+      : t("catalogExcerpt")
+    : scanNote || t("dataNotLoaded");
 
   metaId.textContent = String(item.id);
   metaName.textContent = metadata?.nameResourceIdentifier || "—";
@@ -1236,7 +1634,7 @@ function applyItemToCard(card, item) {
       ...metadata.defaultColors.map((color) => buildColorChip(color))
     );
   } else {
-    ensureMetaCollection(metaColors, "Brak kolorów.");
+    ensureMetaCollection(metaColors, t("noColors"));
   }
 
   if (metadata?.tags?.length) {
@@ -1244,9 +1642,9 @@ function applyItemToCard(card, item) {
       ...metadata.tags.map((tag, index) => buildTagDetails(tag, index))
     );
   } else if (hasMetadata) {
-    ensureMetaCollection(metaTags, "Rozwiń kartę, aby doładować pełne tagi z JSON.");
+    ensureMetaCollection(metaTags, t("expandForTags"));
   } else {
-    ensureMetaCollection(metaTags, "Brak tagów.");
+    ensureMetaCollection(metaTags, t("noTags"));
   }
 }
 
@@ -1278,10 +1676,10 @@ function buildCard(item) {
 
     try {
       await downloadRotatedImage(item, image);
-      setTemporaryStatus(`Pobrano PNG dla ID ${item.id}.`);
+      setTemporaryStatus(t("downloadSuccess", { id: item.id }));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setTemporaryStatus(`Nie udało się pobrać ID ${item.id}: ${message}`, true, 4200);
+      setTemporaryStatus(t("downloadFailure", { id: item.id, message }), true, 4200);
     }
   });
 
@@ -1343,29 +1741,39 @@ function buildCard(item) {
 
 function updateSummary() {
   const activeGroup = getActiveGroupEntry();
-  const yearText = ` w układzie lat ${getYearOrderLabel()}`;
+  const yearText = t("yearText", { yearOrder: getYearOrderLabel() });
   const selectedItemTypeLabel = getSelectedItemTypeLabel();
   const itemTypeText =
-    !state.searchQuery && selectedItemTypeLabel ? ` dla type ${selectedItemTypeLabel}` : "";
+    !state.searchQuery && selectedItemTypeLabel
+      ? t("itemTypeText", { itemType: selectedItemTypeLabel })
+      : "";
   const collectionText =
     !state.searchQuery && state.selectedCollectionType
-      ? ` w ${state.selectedCollectionType}`
+      ? t("collectionText", { collectionType: state.selectedCollectionType })
       : "";
 
   if (!state.totalAvailable) {
     elements.resultsLabel.textContent = state.searchQuery
-      ? `Nie znaleziono ID ${state.searchQuery}.`
-      : `Brak elementów do wyświetlenia${yearText}${itemTypeText}${collectionText}.`;
+      ? t("noResultsForId", { id: state.searchQuery })
+      : t("noResultsDefault", { yearText, itemTypeText, collectionText });
     return;
   }
 
   const queryText = state.searchQuery
-    ? ` dla dokładnego ID ${state.searchQuery}`
+    ? t("queryText", { id: state.searchQuery })
     : "";
-  const groupText = activeGroup ? ` w grupie ${activeGroup.label}` : "";
+  const groupText = activeGroup ? t("groupText", { label: activeGroup.label }) : "";
 
   elements.resultsLabel.textContent =
-    `Widoczne ${formatNumber(state.renderedCount)} z ${formatNumber(state.totalAvailable)} elementów${yearText}${itemTypeText}${collectionText}${groupText}${queryText}.`;
+    t("resultsVisible", {
+      renderedCount: formatNumber(state.renderedCount),
+      totalAvailable: formatNumber(state.totalAvailable),
+      yearText,
+      itemTypeText,
+      collectionText,
+      groupText,
+      queryText,
+    });
 }
 
 function syncLoadMoreButton() {
@@ -1532,7 +1940,7 @@ async function renderNextBatch(reset = false) {
     }
     requestAnimationFrame(maybeFillViewport);
   } catch (error) {
-    setStatus(`Nie udało się pobrać listy elementów: ${error.message}`, true);
+    setStatus(t("itemsFetchFailure", { message: error.message }), true);
     syncEmptyState();
   } finally {
     state.isRendering = false;
@@ -1559,12 +1967,20 @@ async function refreshStatus() {
   try {
     const payload = await fetchJson("/api/status");
     elements.repoStats.textContent =
-      `${formatNumber(payload.totalImages)} obrazów PNG, ${formatNumber(payload.cachedItemsCount)} JSON, zakres ID ${formatNumber(payload.minId)} -> ${formatNumber(payload.maxId)}.`;
+      t("repoStatsText", {
+        totalImages: formatNumber(payload.totalImages),
+        cachedItemsCount: formatNumber(payload.cachedItemsCount),
+        minId: formatNumber(payload.minId),
+        maxId: formatNumber(payload.maxId),
+      });
 
-    elements.scanState.textContent = "Katalog statyczny";
+    elements.scanState.textContent = t("staticCatalog");
     elements.scanRange.textContent = `${formatNumber(payload.minId)} - ${formatNumber(payload.maxId)}`;
     elements.scanProgress.textContent =
-      `${formatNumber(payload.cachedItemsCount)} / ${formatNumber(payload.totalItems)} rekordów z metadanymi`;
+      t("metadataProgress", {
+        cachedItemsCount: formatNumber(payload.cachedItemsCount),
+        totalItems: formatNumber(payload.totalItems),
+      });
     elements.scanNextRun.textContent = payload.generatedAt ? formatDate(payload.generatedAt) : "—";
 
     populateItemTypes(payload.availableItemTypes);
@@ -1572,14 +1988,14 @@ async function refreshStatus() {
     populateCollectionGroupJumpSelects();
     updateResultsHint();
 
-    setStatus("Katalog statyczny gotowy. Strona działa bez backendu i nadaje się do hostowania na GitHub Pages.");
+    setStatus(t("catalogReady"));
   } catch (error) {
-    setStatus(`Nie udało się pobrać katalogu: ${error.message}`, true);
-    elements.scanState.textContent = "Brak danych";
+    setStatus(t("catalogFetchFailure", { message: error.message }), true);
+    elements.scanState.textContent = t("noData");
     elements.scanRange.textContent = "—";
     elements.scanProgress.textContent = "—";
     elements.scanNextRun.textContent = "—";
-    elements.repoStats.textContent = "Nie udało się wczytać statycznego katalogu.";
+    elements.repoStats.textContent = t("connectionHelpDefault");
   }
 }
 
@@ -1625,6 +2041,18 @@ function applyGroupJump(groupType, groupKey) {
 }
 
 function wireEvents() {
+  elements.langPl.addEventListener("click", () => {
+    applyLanguage("pl").catch((error) => {
+      setStatus(t("bootstrapFailure", { message: error.message }), true);
+    });
+  });
+
+  elements.langEn.addEventListener("click", () => {
+    applyLanguage("en").catch((error) => {
+      setStatus(t("bootstrapFailure", { message: error.message }), true);
+    });
+  });
+
   elements.search.addEventListener("input", (event) => {
     const normalized = normalizeIdQuery(event.target.value);
     if (event.target.value !== normalized) {
@@ -1755,15 +2183,19 @@ function wireEvents() {
 }
 
 async function bootstrap() {
+  state.language = getPreferredLanguage();
+  updateLanguageButtons();
+  applyStaticTranslations();
+
   if (window.location.protocol === "file:") {
     const help = getConnectionHelp();
     setStatus(help, true);
-    elements.scanState.textContent = "Tryb pliku";
+    elements.scanState.textContent = t("fileMode");
     elements.scanRange.textContent = "—";
     elements.scanProgress.textContent = "—";
     elements.scanNextRun.textContent = "—";
-    elements.repoStats.textContent = "Otwórz aplikację przez GitHub Pages albo lokalny serwer HTTP.";
-    elements.resultsLabel.textContent = "Katalog statyczny nie może zostać wczytany z file://.";
+    elements.repoStats.textContent = t("openAppHelp");
+    elements.resultsLabel.textContent = t("fileResultsFailure");
     elements.emptyState.classList.remove("hidden");
     return;
   }
@@ -1774,5 +2206,5 @@ async function bootstrap() {
 }
 
 bootstrap().catch((error) => {
-  setStatus(`Nie udało się uruchomić strony: ${error.message}`, true);
+  setStatus(t("bootstrapFailure", { message: error.message }), true);
 });

@@ -36,9 +36,21 @@
 
     <div class="site-shell">
       <header class="hero">
+        <div class="lang-buttons" aria-label="Wybór języka">
+          <button id="lang-pl" class="lang-btn" type="button" aria-pressed="false">
+            <img src="./assets/flag-pl.svg" alt="Polski" />
+            <span>Polski</span>
+          </button>
+
+          <button id="lang-en" class="lang-btn" type="button" aria-pressed="false">
+            <img src="./assets/flag-en.svg" alt="English" />
+            <span>English</span>
+          </button>
+        </div>
+
         <p class="eyebrow">MSP2 PNG</p>
-        <h1>Archiwum ID przedmiotów</h1>
-        <p class="hero-copy hidden">
+        <h1 id="hero-title">Archiwum ID przedmiotów</h1>
+        <p id="hero-copy" class="hero-copy hidden">
           Strona korzysta z obrazów z repozytorium
           <a href="https://github.com/komimsp/msp2_PNG" target="_blank" rel="noreferrer"
             >komimsp/msp2_PNG</a
@@ -51,10 +63,10 @@
         </p>
         <div class="hero-meta hidden">
           <span id="repo-stats" hidden>Ładowanie danych z repozytorium...</span>
-          <a class="hero-link" href="https://github.com/komimsp/msp2_PNG" target="_blank" rel="noreferrer"
+          <a id="hero-link-png" class="hero-link" href="https://github.com/komimsp/msp2_PNG" target="_blank" rel="noreferrer"
             >Otwórz repo z PNG</a
           >
-          <a class="hero-link is-secondary" href="https://github.com/komimsp/msp2_json_ids" target="_blank" rel="noreferrer"
+          <a id="hero-link-json" class="hero-link is-secondary" href="https://github.com/komimsp/msp2_json_ids" target="_blank" rel="noreferrer"
             >Otwórz repo z JSON</a
           >
         </div>
@@ -64,7 +76,7 @@
         <div class="toolbar-filters">
           <div class="search-block">
             <label class="search-field" for="search">
-              <span>Wyszukaj ID</span>
+              <span id="search-label">Wyszukaj ID</span>
             </label>
             <div class="search-input-wrap">
               <input
@@ -94,7 +106,7 @@
 
           <div class="toolbar-secondary">
             <label class="collection-field" for="year-filter">
-              <span>Lata</span>
+              <span id="year-label">Lata</span>
               <select id="year-filter" name="year-filter" aria-controls="items">
                 <option value="asc">2019-2026</option>
                 <option value="desc">2026-2019</option>
@@ -102,35 +114,35 @@
             </label>
 
             <label class="collection-field" for="item-type">
-              <span>Type</span>
+              <span id="item-type-label">Type</span>
               <select id="item-type" name="item-type" aria-controls="items">
                 <option value="">Wszystkie type</option>
               </select>
             </label>
 
             <label class="collection-field" for="collection-type">
-              <span>Typ collection</span>
+              <span id="collection-type-label">Typ collection</span>
               <select id="collection-type" name="collection-type" aria-controls="items">
                 <option value="">Wszystkie collection</option>
               </select>
             </label>
 
             <label class="collection-field" for="theme-group">
-              <span>Motywy</span>
+              <span id="theme-group-label">Motywy</span>
               <select id="theme-group" name="theme-group" aria-controls="items">
                 <option value="">Wszystkie motywy</option>
               </select>
             </label>
 
             <label class="collection-field" for="campaign-group">
-              <span>Kampanie</span>
+              <span id="campaign-group-label">Kampanie</span>
               <select id="campaign-group" name="campaign-group" aria-controls="items">
                 <option value="">Wszystkie kampanie</option>
               </select>
             </label>
 
             <label class="sort-field" for="sort-order">
-              <span>Sortowanie ID</span>
+              <span id="sort-order-label">Sortowanie ID</span>
               <select id="sort-order" name="sort-order" aria-controls="items">
                 <option value="desc">Od największych do najmniejszych</option>
                 <option value="asc">Od najmniejszych do największych</option>
@@ -151,22 +163,22 @@
 
       <section class="scan-panel hidden" aria-label="Status skanowania">
         <article class="scan-box">
-          <p class="scan-label">Tryb</p>
+          <p id="scan-label-state" class="scan-label">Tryb</p>
           <p id="scan-state" class="scan-value">Ładowanie katalogu...</p>
         </article>
 
         <article class="scan-box">
-          <p class="scan-label">Zakres ID</p>
+          <p id="scan-label-range" class="scan-label">Zakres ID</p>
           <p id="scan-range" class="scan-value">-</p>
         </article>
 
         <article class="scan-box">
-          <p class="scan-label">Metadane</p>
+          <p id="scan-label-progress" class="scan-label">Metadane</p>
           <p id="scan-progress" class="scan-value">-</p>
         </article>
 
         <article class="scan-box">
-          <p class="scan-label">Wygenerowano</p>
+          <p id="scan-label-generated" class="scan-label">Wygenerowano</p>
           <p id="scan-next-run" class="scan-value">-</p>
         </article>
       </section>
@@ -177,8 +189,8 @@
         </p>
 
         <div id="empty-state" class="empty-state hidden">
-          <h2>Brak wyników</h2>
-          <p>Spróbuj wpisać krótszy fragment ID albo wyczyść filtr.</p>
+          <h2 id="empty-title">Brak wyników</h2>
+          <p id="empty-copy">Spróbuj wpisać krótszy fragment ID albo wyczyść filtr.</p>
         </div>
 
         <section id="items" class="items-list" aria-label="Lista przedmiotów"></section>
@@ -230,29 +242,29 @@
           </div>
         </summary>
 
-        <div class="item-meta">
-          <p class="meta-state"></p>
+          <div class="item-meta">
+            <p class="meta-state"></p>
 
-          <div class="meta-grid">
-            <div class="meta-row"><span class="meta-key">ID</span><span class="meta-id"></span></div>
-            <div class="meta-row"><span class="meta-key">Nazwa</span><span class="meta-name"></span></div>
-            <div class="meta-row"><span class="meta-key">Type</span><span class="meta-type"></span></div>
-            <div class="meta-row"><span class="meta-key">Created</span><span class="meta-created"></span></div>
-            <div class="meta-row"><span class="meta-key">Modified</span><span class="meta-modified"></span></div>
-            <div class="meta-row"><span class="meta-key">Name RI</span><span class="meta-name-ri"></span></div>
-            <div class="meta-row"><span class="meta-key">Graphics RI</span><span class="meta-graphics-ri"></span></div>
-            <div class="meta-row"><span class="meta-key">Collection Key</span><span class="meta-collection-key"></span></div>
-            <div class="meta-row"><span class="meta-key">Collection LookUpId</span><span class="meta-collection-lookup"></span></div>
-            <div class="meta-row"><span class="meta-key">Collection Type</span><span class="meta-collection-type"></span></div>
-          </div>
+            <div class="meta-grid">
+              <div class="meta-row"><span class="meta-key">ID</span><span class="meta-id"></span></div>
+            <div class="meta-row"><span class="meta-key meta-label-name">Nazwa</span><span class="meta-name"></span></div>
+            <div class="meta-row"><span class="meta-key meta-label-type">Type</span><span class="meta-type"></span></div>
+            <div class="meta-row"><span class="meta-key meta-label-created">Created</span><span class="meta-created"></span></div>
+            <div class="meta-row"><span class="meta-key meta-label-modified">Modified</span><span class="meta-modified"></span></div>
+            <div class="meta-row"><span class="meta-key meta-label-name-ri">Name RI</span><span class="meta-name-ri"></span></div>
+            <div class="meta-row"><span class="meta-key meta-label-graphics-ri">Graphics RI</span><span class="meta-graphics-ri"></span></div>
+            <div class="meta-row"><span class="meta-key meta-label-collection-key">Collection Key</span><span class="meta-collection-key"></span></div>
+            <div class="meta-row"><span class="meta-key meta-label-collection-lookup">Collection LookUpId</span><span class="meta-collection-lookup"></span></div>
+            <div class="meta-row"><span class="meta-key meta-label-collection-type">Collection Type</span><span class="meta-collection-type"></span></div>
+            </div>
 
           <div class="meta-section">
-            <p class="meta-section-title">Kolory</p>
+            <p class="meta-section-title meta-title-colors">Kolory</p>
             <div class="meta-colors"></div>
           </div>
 
           <div class="meta-section">
-            <p class="meta-section-title">Tagi</p>
+            <p class="meta-section-title meta-title-tags">Tagi</p>
             <div class="meta-tags"></div>
           </div>
 
@@ -279,7 +291,7 @@
         </div>
 
         <div class="image-modal-meta">
-          <span>PNG z aktualnym obrotem podglądu.</span>
+          <span id="image-modal-note">PNG z aktualnym obrotem podglądu.</span>
           <a id="image-modal-link" class="image-modal-link" href="#" target="_blank" rel="noreferrer"
             >Otwórz PNG</a
           >
