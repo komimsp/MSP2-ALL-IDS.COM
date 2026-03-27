@@ -2,6 +2,10 @@ const BATCH_SIZE = 60;
 const STATIC_CATALOG_URL = "./data/catalog.json";
 const JSON_REPO_BASE_URL = "https://github.com/komimsp/msp2_json_ids/blob/main/ids";
 const SUPPORTED_YEARS = ["2019", "2020", "2021", "2022", "2023", "2024", "2025", "2026"];
+const SPECIAL_ITEM_TYPE_LABELS = {
+  tag_clothes: "tag_clothes",
+  tag_beauty: "TAG_BEAUTY",
+};
 
 const state = {
   renderedCount: 0,
@@ -94,7 +98,8 @@ function formatCollectionTypeLabel(collectionType) {
 }
 
 function formatItemTypeLabel(itemType) {
-  return String(itemType || "").trim() || "bez type";
+  const normalizedType = String(itemType || "").trim().toLowerCase();
+  return SPECIAL_ITEM_TYPE_LABELS[normalizedType] || String(itemType || "").trim() || "bez type";
 }
 
 function getItemTypeTokens(rawValue) {
@@ -104,6 +109,36 @@ function getItemTypeTokens(rawValue) {
     .filter(Boolean);
 
   return [...new Set(values)];
+}
+
+function getItemFilterTypes(item) {
+  const storedTypes = Array.isArray(item?.metadata?.filterTypes)
+    ? item.metadata.filterTypes
+        .map((value) => String(value || "").trim().toLowerCase())
+        .filter(Boolean)
+    : [];
+
+  if (storedTypes.length) {
+    return [...new Set(storedTypes)];
+  }
+
+  return getItemTypeTokens(item?.metadata?.itemType);
+}
+
+function getSelectedItemTypeLabel(itemType = state.selectedItemType) {
+  const normalizedType = String(itemType || "").trim().toLowerCase();
+  if (!normalizedType) {
+    return "";
+  }
+
+  const availableTypes = Array.isArray(state.catalog?.availableItemTypes)
+    ? state.catalog.availableItemTypes
+    : [];
+  const match = availableTypes.find(
+    (entry) => String(entry?.type || "").trim().toLowerCase() === normalizedType
+  );
+
+  return match?.label || formatItemTypeLabel(normalizedType);
 }
 
 function formatSortOrderLabel(sortOrder) {
@@ -209,7 +244,8 @@ function updateResultsHint() {
   const sortText = formatSortOrderLabel(state.selectedSortOrder);
   const activeGroup = getActiveGroupEntry();
   const yearText = `Lata ${getYearOrderLabel()}. `;
-  const itemTypeText = state.selectedItemType ? ` i type ${state.selectedItemType}` : "";
+  const selectedItemTypeLabel = getSelectedItemTypeLabel();
+  const itemTypeText = selectedItemTypeLabel ? ` i type ${selectedItemTypeLabel}` : "";
 
   if (state.searchQuery) {
     elements.resultsHint.textContent =
@@ -235,7 +271,7 @@ function updateResultsHint() {
 
   if (state.selectedItemType) {
     elements.resultsHint.textContent =
-      `${yearText}Pokazuję tylko ID z type ${state.selectedItemType}. ${sortText}.`;
+      `${yearText}Pokazuję tylko ID z type ${selectedItemTypeLabel}. ${sortText}.`;
     return;
   }
 
@@ -273,7 +309,7 @@ function getStaticItemTypes(items) {
   const counts = new Map();
 
   for (const item of Array.isArray(items) ? items : []) {
-    const itemTypes = getItemTypeTokens(item?.metadata?.itemType);
+    const itemTypes = getItemFilterTypes(item);
     for (const itemType of itemTypes) {
       counts.set(itemType, (counts.get(itemType) || 0) + 1);
     }
@@ -282,10 +318,13 @@ function getStaticItemTypes(items) {
   return [...counts.entries()]
     .map(([type, count]) => ({
       type,
+      label: formatItemTypeLabel(type),
       count,
     }))
     .sort((left, right) =>
-      left.type.localeCompare(right.type, "pl", { sensitivity: "base" }) ||
+      (left.label || left.type).localeCompare(right.label || right.type, "pl", {
+        sensitivity: "base",
+      }) ||
       right.count - left.count
     );
 }
@@ -392,7 +431,8 @@ function getFilteredItems({
     items = items.filter((item) => String(item.id) === normalizedSearch);
   } else {
     if (itemType) {
-      items = items.filter((item) => getItemTypeTokens(item?.metadata?.itemType).includes(itemType));
+      const normalizedItemType = String(itemType || "").trim().toLowerCase();
+      items = items.filter((item) => getItemFilterTypes(item).includes(normalizedItemType));
     }
 
     if (groupKey) {
@@ -806,8 +846,8 @@ function populateItemTypes(itemTypes) {
 
     const option = document.createElement("option");
     option.value = entry.type;
-    option.textContent = `${formatItemTypeLabel(entry.type)} (${formatNumber(entry.count || 0)})`;
-    option.title = entry.type;
+    option.textContent = `${entry.label || formatItemTypeLabel(entry.type)} (${formatNumber(entry.count || 0)})`;
+    option.title = entry.label || entry.type;
     elements.itemType.appendChild(option);
     availableValues.add(entry.type);
   }
@@ -1304,8 +1344,9 @@ function buildCard(item) {
 function updateSummary() {
   const activeGroup = getActiveGroupEntry();
   const yearText = ` w układzie lat ${getYearOrderLabel()}`;
+  const selectedItemTypeLabel = getSelectedItemTypeLabel();
   const itemTypeText =
-    !state.searchQuery && state.selectedItemType ? ` dla type ${state.selectedItemType}` : "";
+    !state.searchQuery && selectedItemTypeLabel ? ` dla type ${selectedItemTypeLabel}` : "";
   const collectionText =
     !state.searchQuery && state.selectedCollectionType
       ? ` w ${state.selectedCollectionType}`
