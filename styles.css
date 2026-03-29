@@ -302,6 +302,42 @@ a {
   background: rgba(24, 143, 150, 0.18);
 }
 
+.jump-buttons {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 30;
+  display: grid;
+  gap: 10px;
+}
+
+.jump-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border: 1px solid rgba(24, 143, 150, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: 1.35rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 14px 34px rgba(12, 24, 40, 0.18);
+  backdrop-filter: blur(16px);
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.jump-btn:hover,
+.jump-btn:focus-visible {
+  background: #ffffff;
+  border-color: rgba(24, 143, 150, 0.35);
+  transform: translateY(-1px);
+}
+
 .toolbar {
   position: sticky;
   top: 16px;
@@ -1379,6 +1415,19 @@ a {
     height: 14px;
   }
 
+  .jump-buttons {
+    right: 12px;
+    bottom: 12px;
+    gap: 8px;
+  }
+
+  .jump-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    font-size: 1.2rem;
+  }
+
   .hero h1 {
     max-width: 9ch;
     font-size: clamp(1.85rem, 10.5vw, 2.7rem);
@@ -1558,6 +1607,11 @@ a {
     position: static;
     justify-content: flex-end;
     margin-bottom: 12px;
+  }
+
+  .jump-buttons {
+    right: 10px;
+    bottom: 10px;
   }
 
   .hero,

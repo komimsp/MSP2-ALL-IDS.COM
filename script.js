@@ -127,6 +127,9 @@ const UI_TEXT = {
     languagePolish: "Polski",
     languageEnglish: "English",
     languageChooser: "Wybór języka",
+    jumpNav: "Nawigacja strony",
+    jumpTop: "Przewiń na górę",
+    jumpBottom: "Przewiń na dół",
   },
   en: {
     pageTitle: "MSP2 PNG Archive",
@@ -245,6 +248,9 @@ const UI_TEXT = {
     languagePolish: "Polski",
     languageEnglish: "English",
     languageChooser: "Language selector",
+    jumpNav: "Page navigation",
+    jumpTop: "Scroll to top",
+    jumpBottom: "Scroll to bottom",
   },
 };
 
@@ -317,6 +323,9 @@ const elements = {
   imageModalLink: document.getElementById("image-modal-link"),
   imageModalNote: document.getElementById("image-modal-note"),
   imageModalClose: document.getElementById("image-modal-close"),
+  jumpButtons: document.querySelector(".jump-buttons"),
+  jumpTop: document.getElementById("jump-top"),
+  jumpBottom: document.getElementById("jump-bottom"),
 };
 
 function getPreferredLanguage() {
@@ -409,6 +418,11 @@ function applyStaticTranslations() {
   }
   elements.imageModalClose.setAttribute("aria-label", t("closeModal"));
   elements.imageModalNote.textContent = t("imageModalNote");
+  elements.jumpButtons?.setAttribute("aria-label", t("jumpNav"));
+  elements.jumpTop?.setAttribute("aria-label", t("jumpTop"));
+  elements.jumpTop?.setAttribute("title", t("jumpTop"));
+  elements.jumpBottom?.setAttribute("aria-label", t("jumpBottom"));
+  elements.jumpBottom?.setAttribute("title", t("jumpBottom"));
   if (elements.imageModalLink.getAttribute("href") === "#") {
     elements.imageModalLink.textContent = t("openPng");
   }
@@ -2149,6 +2163,20 @@ function wireEvents() {
 
   elements.loadMore.addEventListener("click", () => {
     renderNextBatch();
+  });
+
+  elements.jumpTop.addEventListener("click", () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  });
+
+  elements.jumpBottom.addEventListener("click", () => {
+    window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior: "smooth",
+    });
   });
 
   elements.imageModal.addEventListener("click", (event) => {
