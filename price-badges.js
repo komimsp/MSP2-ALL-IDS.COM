@@ -1,11 +1,6 @@
 (() => {
   "use strict";
 
-  // USTAW TUTAJ ŹRÓDŁO CEN:
-  // Opcja 1: jeśli id_cena.json jest w repo MSP2-ALL-IDS.COM
-  // const PRICE_JSON_URL = "./data/id_cena.json";
-
-  // Opcja 2: jeśli id_cena.json jest w repo msp2_json_ids
   const PRICE_JSON_URL =
     "https://raw.githubusercontent.com/komimsp/msp2_json_ids/main/prices/id_cena.json";
 
@@ -42,6 +37,7 @@
         overflow: hidden;
         text-overflow: ellipsis;
         box-shadow: 0 6px 16px rgba(0,0,0,.18);
+        background: linear-gradient(135deg, #9a9a9a, #6f6f6f);
       }
 
       .price-badge.sc {
@@ -56,10 +52,6 @@
         background: linear-gradient(135deg, #9a9a9a, #6f6f6f);
       }
 
-      .price-badge.loading {
-        background: linear-gradient(135deg, #808080, #5e5e5e);
-      }
-
       .price-badge.error {
         background: linear-gradient(135deg, #8b5e5e, #6a4040);
       }
@@ -70,19 +62,14 @@
   async function loadPrices() {
     if (!pricesPromise) {
       pricesPromise = (async () => {
-        const res = await fetch(PRICE_JSON_URL, {
-          cache: "no-cache"
-        });
-
+        const res = await fetch(PRICE_JSON_URL, { cache: "no-cache" });
         if (!res.ok) {
           throw new Error(`Nie udało się pobrać cennika: HTTP ${res.status}`);
         }
-
         const data = await res.json();
         if (!data || typeof data !== "object") {
           throw new Error("Cennik nie jest poprawnym JSON obiektem.");
         }
-
         return data;
       })();
     }
@@ -105,8 +92,8 @@
 
     const num = Number(value);
     if (!Number.isFinite(num)) return String(value);
-
     if (Number.isInteger(num)) return String(num);
+
     return String(Number(num.toFixed(2)));
   }
 
@@ -129,6 +116,7 @@
     if (currency === "SC") return `${formattedPrice} SC`;
     if (currency === "DIA") return `${formattedPrice} DIA`;
     if (currency) return `${formattedPrice} ${currency}`;
+
     return formattedPrice;
   }
 
@@ -139,6 +127,7 @@
 
     if (currency === "SC") return "sc";
     if (currency === "DIA") return "dia";
+
     return "unknown";
   }
 
@@ -165,8 +154,8 @@
     if (badge) return badge;
 
     badge = document.createElement("span");
-    badge.className = "price-badge loading";
-    badge.textContent = "Cena...";
+    badge.className = "price-badge";
+    badge.textContent = "Brak ceny";
     row.appendChild(badge);
 
     return badge;
@@ -174,9 +163,7 @@
 
   function setBadge(badge, text, typeClass) {
     badge.className = "price-badge";
-    if (typeClass) {
-      badge.classList.add(typeClass);
-    }
+    if (typeClass) badge.classList.add(typeClass);
     badge.textContent = text;
   }
 
