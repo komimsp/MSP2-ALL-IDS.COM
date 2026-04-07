@@ -1,167 +1,253 @@
-(async function () {
+(() => {
+  "use strict";
 
-const OWNER="komimsp"
-const REPO="msp2_json_ids"
-const REF="79a698417ec7da9321a11744f91f315449e4b1c9"
+  // USTAW TUTAJ ŹRÓDŁO CEN:
+  // Opcja 1: jeśli id_cena.json jest w repo MSP2-ALL-IDS.COM
+  // const PRICE_JSON_URL = "./data/id_cena.json";
 
-const SHOPS=[6,1,2,3,4,5,7,8,9,11,12,13]
+  // Opcja 2: jeśli id_cena.json jest w repo msp2_json_ids
+  const PRICE_JSON_URL =
+    "https://raw.githubusercontent.com/komimsp/msp2_json_ids/main/prices/id_cena.json";
 
-function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+  const CARD_SELECTOR = ".item-card";
+  const BADGE_ROW_SELECTOR = ".tile-badge-row";
+  const ID_BADGE_SELECTOR = ".item-badge";
+  const META_ID_SELECTOR = ".meta-id";
+  const JSON_LINK_SELECTOR = ".meta-json-link";
 
-function getItemURL(id){
-const start=Math.floor(id/1000)*1000
-const end=start+999
-return `https://raw.githubusercontent.com/${OWNER}/${REPO}/${REF}/ids/${start}-${end}/${id}.json`
-}
+  let pricesPromise = null;
+  const processedCards = new WeakSet();
 
-async function getItem(id){
-const res=await fetch(getItemURL(id))
-if(!res.ok)return null
-return res.json()
-}
+  injectStyles();
 
-function extractTags(item){
+  function injectStyles() {
+    if (document.getElementById("price-badge-styles")) return;
 
-const tags=[]
+    const style = document.createElement("style");
+    style.id = "price-badge-styles";
+    style.textContent = `
+      .price-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 78px;
+        height: 26px;
+        padding: 0 10px;
+        border-top-right-radius: 12px;
+        color: #fff;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        box-shadow: 0 6px 16px rgba(0,0,0,.18);
+      }
 
-for(const t of item.tags||[]){
-if(t.id)tags.push(t.id)
-}
+      .price-badge.sc {
+        background: linear-gradient(135deg, #ffd84d, #f0b400);
+      }
 
-return tags
-}
+      .price-badge.dia {
+        background: linear-gradient(135deg, #79c7ff, #3c8ef5);
+      }
 
-function buildURL(tags,shop,page=1){
+      .price-badge.unknown {
+        background: linear-gradient(135deg, #9a9a9a, #6f6f6f);
+      }
 
-const url=new URL(`https://eu.mspapis.com/shopinventory/v1/shops/${shop}/listings`)
-url.searchParams.set("page",page)
-url.searchParams.set("pageSize",100)
+      .price-badge.loading {
+        background: linear-gradient(135deg, #808080, #5e5e5e);
+      }
 
-tags.forEach(t=>url.searchParams.append("tag",t))
+      .price-badge.error {
+        background: linear-gradient(135deg, #8b5e5e, #6a4040);
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
-return url.toString()
-}
+  async function loadPrices() {
+    if (!pricesPromise) {
+      pricesPromise = (async () => {
+        const res = await fetch(PRICE_JSON_URL, {
+          cache: "no-cache"
+        });
 
-async function findPrice(id,item){
+        if (!res.ok) {
+          throw new Error(`Nie udało się pobrać cennika: HTTP ${res.status}`);
+        }
 
-const tags=extractTags(item)
+        const data = await res.json();
+        if (!data || typeof data !== "object") {
+          throw new Error("Cennik nie jest poprawnym JSON obiektem.");
+        }
 
-for(const shop of SHOPS){
+        return data;
+      })();
+    }
 
-for(let p=1;p<=3;p++){
+    return pricesPromise;
+  }
 
-const url=buildURL(tags,shop,p)
+  function normalizeCurrency(value) {
+    const raw = String(value ?? "").trim().toLowerCase();
 
-try{
+    if (!raw) return null;
+    if (raw.includes("star") || raw === "sc") return "SC";
+    if (raw.includes("diamond") || raw === "dia") return "DIA";
 
-const res=await fetch(url)
-if(!res.ok)continue
+    return String(value).trim().toUpperCase();
+  }
 
-const data=await res.json()
+  function formatPriceValue(value) {
+    if (value == null) return null;
 
-const match=data.find(x=>String(x.id)===String(id))
+    const num = Number(value);
+    if (!Number.isFinite(num)) return String(value);
 
-if(match){
+    if (Number.isInteger(num)) return String(num);
+    return String(Number(num.toFixed(2)));
+  }
 
-return{
-price:match.salesPrice,
-currency:match.currency
-}
+  function formatPriceLabel(entry) {
+    if (!entry) return null;
 
-}
+    const price =
+      entry.price ??
+      entry.salesPrice ??
+      entry.salesPriceRaw ??
+      null;
 
-}catch(e){}
+    const currency = normalizeCurrency(
+      entry.currency ?? entry.currencyCode ?? null
+    );
 
-}
+    const formattedPrice = formatPriceValue(price);
+    if (formattedPrice == null) return "Brak ceny";
 
-}
+    if (currency === "SC") return `${formattedPrice} SC`;
+    if (currency === "DIA") return `${formattedPrice} DIA`;
+    if (currency) return `${formattedPrice} ${currency}`;
+    return formattedPrice;
+  }
 
-return null
-}
+  function getBadgeClass(entry) {
+    const currency = normalizeCurrency(
+      entry?.currency ?? entry?.currencyCode ?? null
+    );
 
-function createBadge(text,type){
+    if (currency === "SC") return "sc";
+    if (currency === "DIA") return "dia";
+    return "unknown";
+  }
 
-const el=document.createElement("span")
-el.className="price-badge"
+  function getItemIdFromCard(card) {
+    const metaId = card.querySelector(META_ID_SELECTOR)?.textContent?.trim();
+    if (/^\d+$/.test(metaId || "")) return metaId;
 
-if(type==="DIA")el.classList.add("dia")
-else el.classList.add("sc")
+    const badgeText = card.querySelector(ID_BADGE_SELECTOR)?.textContent?.trim() || "";
+    const badgeMatch = badgeText.match(/(\d+)/);
+    if (badgeMatch) return badgeMatch[1];
 
-el.textContent=text
+    const jsonHref = card.querySelector(JSON_LINK_SELECTOR)?.getAttribute("href") || "";
+    const jsonMatch = jsonHref.match(/\/(\d+)\.json(?:$|\?)/);
+    if (jsonMatch) return jsonMatch[1];
 
-return el
-}
+    return null;
+  }
 
-function injectCSS(){
+  function getOrCreatePriceBadge(card) {
+    const row = card.querySelector(BADGE_ROW_SELECTOR);
+    if (!row) return null;
 
-if(document.getElementById("price-css"))return
+    let badge = row.querySelector(".price-badge");
+    if (badge) return badge;
 
-const s=document.createElement("style")
+    badge = document.createElement("span");
+    badge.className = "price-badge loading";
+    badge.textContent = "Cena...";
+    row.appendChild(badge);
 
-s.id="price-css"
+    return badge;
+  }
 
-s.innerHTML=`
-.price-badge{
-margin-left:6px;
-padding:2px 10px;
-border-radius:10px;
-font-weight:700;
-font-size:12px;
-color:#fff;
-background:#ffbf00;
-}
+  function setBadge(badge, text, typeClass) {
+    badge.className = "price-badge";
+    if (typeClass) {
+      badge.classList.add(typeClass);
+    }
+    badge.textContent = text;
+  }
 
-.price-badge.dia{
-background:#4ea7ff;
-}
-`
+  async function enrichCard(card) {
+    if (!card || processedCards.has(card)) return;
+    processedCards.add(card);
 
-document.head.appendChild(s)
+    const badge = getOrCreatePriceBadge(card);
+    if (!badge) return;
 
-}
+    const itemId = getItemIdFromCard(card);
+    if (!itemId) {
+      setBadge(badge, "Brak ID", "error");
+      return;
+    }
 
-injectCSS()
+    try {
+      const prices = await loadPrices();
+      const entry = prices[itemId];
 
-async function processCard(card){
+      if (!entry) {
+        setBadge(badge, "Brak ceny", "unknown");
+        return;
+      }
 
-const badge=card.querySelector(".item-badge")
-if(!badge)return
+      const label = formatPriceLabel(entry);
+      const cls = getBadgeClass(entry);
 
-const id=badge.textContent.replace(/\D/g,"")
-if(!id)return
+      setBadge(badge, label || "Brak ceny", cls);
+    } catch (error) {
+      console.error("price-badges.js:", error);
+      setBadge(badge, "Błąd ceny", "error");
+    }
+  }
 
-const row=card.querySelector(".tile-badge-row")
-if(!row)return
+  async function scan(root = document) {
+    const cards = Array.from(root.querySelectorAll(CARD_SELECTOR));
+    for (const card of cards) {
+      await enrichCard(card);
+    }
+  }
 
-const item=await getItem(id)
-if(!item)return
+  function observe() {
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (!(node instanceof HTMLElement)) continue;
 
-const price=await findPrice(id,item)
+          if (node.matches?.(CARD_SELECTOR)) {
+            enrichCard(node);
+          } else {
+            scan(node);
+          }
+        }
+      }
+    });
 
-if(!price)return
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
 
-const label=price.currency==="Diamonds"
-?`${price.price} DIA`
-:`${price.price} SC`
+  async function init() {
+    await scan(document);
+    observe();
+  }
 
-row.appendChild(createBadge(label,price.currency==="Diamonds"?"DIA":"SC"))
-
-}
-
-async function run(){
-
-const cards=[...document.querySelectorAll(".item-card")]
-
-for(const c of cards){
-
-processCard(c)
-
-await sleep(100)
-
-}
-
-}
-
-setTimeout(run,2000)
-
-})()
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
+})();
