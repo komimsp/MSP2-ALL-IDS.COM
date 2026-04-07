@@ -10,57 +10,58 @@
     34, 35, 44, 45, 55, 56, 62, 67, 68, 69, 70, 71, 89
   ];
 
-  const MAX_PAGES_PER_SHOP = 3;
   const PAGE_SIZE = 100;
-  const CARD_SELECTOR = ".item-card";
-  const ID_TEXT_REGEX = /\bID\s*(\d+)\b/i;
-  const CONCURRENCY = 4;
+  const MAX_PAGES_PER_SHOP = 5;
+  const CONCURRENCY = 3;
 
   const itemJsonCache = new Map();
   const listingCache = new Map();
   const priceCache = new Map();
   const processedCards = new WeakSet();
+  const waitingCards = new WeakSet();
 
-  injectPriceBadgeStyles();
+  injectStyles();
 
-  function injectPriceBadgeStyles() {
-    if (document.getElementById("price-badges-style")) return;
+  function injectStyles() {
+    if (document.getElementById("price-badge-inline-styles")) return;
 
     const style = document.createElement("style");
-    style.id = "price-badges-style";
+    style.id = "price-badge-inline-styles";
     style.textContent = `
-      .msp2-badge-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-
-      .msp2-price-badge {
+      .price-badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 44px;
-        padding: 0 16px;
-        border-radius: 14px;
-        font-weight: 800;
-        font-size: 18px;
-        letter-spacing: 0.2px;
+        min-width: 86px;
+        max-width: 100%;
+        height: 26px;
+        padding: 0 12px;
+        border-top-right-radius: 12px;
         color: #ffffff;
-        background: linear-gradient(135deg, #f7c948 0%, #e0a800 100%);
-        box-shadow: 0 6px 16px rgba(224, 168, 0, 0.28);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        overflow: hidden;
         white-space: nowrap;
+        text-overflow: ellipsis;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
       }
 
-      .msp2-price-badge.is-loading {
-        background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
-        opacity: 0.92;
+      .price-badge.sc {
+        background: linear-gradient(135deg, #ffd84d, #f0b400);
       }
 
-      .msp2-price-badge.is-not-found,
-      .msp2-price-badge.is-error {
-        background: linear-gradient(135deg, #6f6f6f 0%, #565656 100%);
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+      .price-badge.dia {
+        background: linear-gradient(135deg, #79c7ff, #3c8ef5);
+      }
+
+      .price-badge.loading {
+        background: linear-gradient(135deg, #808080, #5e5e5e);
+      }
+
+      .price-badge.error,
+      .price-badge.not-found {
+        background: linear-gradient(135deg, #6e6e6e, #565656);
       }
     `;
     document.head.appendChild(style);
@@ -80,7 +81,7 @@
   }
 
   async function fetchJson(url) {
-    const res = await fetch(url);
+    const res = await fetch(url, { mode: "cors" });
 
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} for ${url}`);
@@ -91,6 +92,7 @@
 
   async function getItemById(itemId) {
     const key = String(itemId);
+
     if (itemJsonCache.has(key)) {
       return itemJsonCache.get(key);
     }
@@ -279,34 +281,15 @@
     const raw = String(value ?? "").trim().toLowerCase();
 
     if (!raw) return null;
+    if (raw.includes("star") || raw === "sc" || raw === "starcoins" || raw === "starcoin") return "SC";
+    if (raw.includes("diamond") || raw === "dia" || raw === "diamonds" || raw === "diamond") return "DIA";
 
-    if (
-      raw.includes("star") ||
-      raw === "sc" ||
-      raw === "starcoins" ||
-      raw === "starcoin"
-    ) {
-      return "SC";
-    }
-
-    if (
-      raw.includes("diamond") ||
-      raw === "dia" ||
-      raw === "diamonds" ||
-      raw === "diamond"
-    ) {
-      return "DIA";
-    }
-
-    return String(value).trim();
+    return String(value).trim().toUpperCase();
   }
 
   function extractPriceData(listingItem) {
     if (!listingItem || typeof listingItem !== "object") {
-      return {
-        salesPrice: null,
-        currency: null
-      };
+      return { salesPrice: null, currency: null };
     }
 
     const salesPriceCandidates = [
@@ -314,7 +297,9 @@
       listingItem.price?.salesPrice,
       listingItem.pricing?.salesPrice,
       listingItem.cost?.salesPrice,
-      listingItem.salePrice
+      listingItem.salePrice,
+      listingItem.price?.amount,
+      listingItem.pricing?.amount
     ];
 
     const currencyCandidates = [
@@ -330,12 +315,14 @@
 
     const salesPrice = salesPriceCandidates.find(v => v !== undefined && v !== null) ?? null;
     const rawCurrency = currencyCandidates.find(v => v !== undefined && v !== null) ?? null;
-    const currency = normalizeCurrency(rawCurrency);
 
-    return { salesPrice, currency };
+    return {
+      salesPrice,
+      currency: normalizeCurrency(rawCurrency)
+    };
   }
 
-  function formatPriceBadgeText(priceInfo) {
+  function formatPrice(priceInfo) {
     if (!priceInfo || priceInfo.salesPrice == null) {
       return "Brak ceny";
     }
@@ -347,7 +334,7 @@
     if (currency === "DIA") return `${amount} DIA`;
     if (currency) return `${amount} ${currency}`;
 
-    return `${amount}`;
+    return amount;
   }
 
   async function findPriceForItemId(itemId, itemJson) {
@@ -360,7 +347,7 @@
       if (!isClothingLikeItem(itemJson)) {
         return {
           found: false,
-          reason: "To nie wygląda na ubranie/beauty.",
+          reason: "To nie jest ubranie/beauty.",
           priceInfo: null
         };
       }
@@ -375,7 +362,7 @@
       if (!tagIds.length) {
         return {
           found: false,
-          reason: "Brak tagów do zbudowania listing URL.",
+          reason: "Brak tagów do listingu.",
           priceInfo: null
         };
       }
@@ -396,8 +383,7 @@
                 page,
                 listingUrl: url,
                 salesPrice: priceData.salesPrice,
-                currency: priceData.currency,
-                rawListingItem: result.matchedItem
+                currency: priceData.currency
               }
             };
           }
@@ -410,7 +396,7 @@
 
       return {
         found: false,
-        reason: "Nie znaleziono ceny w żadnym shopId.",
+        reason: "Nie znaleziono ceny.",
         priceInfo: null
       };
     })();
@@ -419,111 +405,88 @@
     return promise;
   }
 
-  function extractItemIdFromText(text) {
-    const match = String(text ?? "").match(ID_TEXT_REGEX);
-    return match ? match[1] : null;
-  }
+  function getItemIdFromCard(card) {
+    const metaId = card.querySelector(".meta-id")?.textContent?.trim();
+    if (/^\d+$/.test(metaId || "")) return metaId;
 
-  function findIdBadgeInCard(card) {
-    const candidates = card.querySelectorAll("div, span, p, strong, b");
+    const badgeText = card.querySelector(".item-badge")?.textContent?.trim() || "";
+    const badgeMatch = badgeText.match(/(\d+)/);
+    if (badgeMatch) return badgeMatch[1];
 
-    for (const el of candidates) {
-      const text = (el.textContent || "").trim();
-      if (ID_TEXT_REGEX.test(text)) {
-        return el;
-      }
-    }
+    const jsonHref = card.querySelector(".meta-json-link")?.getAttribute("href") || "";
+    const jsonMatch = jsonHref.match(/\/(\d+)\.json(?:$|\?)/);
+    if (jsonMatch) return jsonMatch[1];
 
     return null;
   }
 
-  function getCardItemId(card) {
-    const badge = findIdBadgeInCard(card);
-    if (badge) {
-      const extracted = extractItemIdFromText(badge.textContent);
-      if (extracted) return extracted;
-    }
-
-    const extractedFromWholeCard = extractItemIdFromText(card.textContent);
-    if (extractedFromWholeCard) return extractedFromWholeCard;
-
-    return null;
-  }
-
-  function ensureBadgeRow(idBadge) {
-    const parent = idBadge.parentElement;
-    if (!parent) return null;
-
-    if (parent.classList.contains("msp2-badge-row")) {
-      return parent;
-    }
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "msp2-badge-row";
-
-    parent.insertBefore(wrapper, idBadge);
-    wrapper.appendChild(idBadge);
-
-    return wrapper;
-  }
-
-  function getOrCreatePriceBadge(card, idBadge) {
-    let badge = card.querySelector(".msp2-price-badge");
-    if (badge) return badge;
-
-    const row = ensureBadgeRow(idBadge);
+  function getOrCreatePriceBadge(card) {
+    const row = card.querySelector(".tile-badge-row");
     if (!row) return null;
 
-    badge = document.createElement("div");
-    badge.className = "msp2-price-badge is-loading";
+    let badge = row.querySelector(".price-badge");
+    if (badge) return badge;
+
+    badge = document.createElement("span");
+    badge.className = "price-badge loading";
     badge.textContent = "Cena...";
     row.appendChild(badge);
 
     return badge;
   }
 
-  function setBadgeState(badge, type, text) {
-    badge.classList.remove("is-loading", "is-not-found", "is-error");
+  function setBadgeState(badge, state, text) {
+    badge.classList.remove("loading", "error", "not-found", "sc", "dia");
 
-    if (type === "loading") badge.classList.add("is-loading");
-    if (type === "not-found") badge.classList.add("is-not-found");
-    if (type === "error") badge.classList.add("is-error");
-
+    if (state) badge.classList.add(state);
     badge.textContent = text;
   }
 
-  async function enrichCardWithPrice(card) {
+  function applyCurrencyClass(badge, currency) {
+    const normalized = normalizeCurrency(currency);
+    if (normalized === "SC") badge.classList.add("sc");
+    else if (normalized === "DIA") badge.classList.add("dia");
+  }
+
+  async function enrichCard(card) {
     if (!card || processedCards.has(card)) return;
+
+    const badge = getOrCreatePriceBadge(card);
+    if (!badge) return;
+
+    const itemId = getItemIdFromCard(card);
+
+    if (!itemId) {
+      if (!waitingCards.has(card)) {
+        waitingCards.add(card);
+        setBadgeState(badge, "loading", "Cena...");
+        setTimeout(() => {
+          waitingCards.delete(card);
+          enrichCard(card);
+        }, 800);
+      }
+      return;
+    }
+
     processedCards.add(card);
 
-    const idBadge = findIdBadgeInCard(card);
-    if (!idBadge) return;
-
-    const itemId = getCardItemId(card);
-    if (!itemId) return;
-
-    const priceBadge = getOrCreatePriceBadge(card, idBadge);
-    if (!priceBadge) return;
-
     try {
-      setBadgeState(priceBadge, "loading", "Cena...");
+      setBadgeState(badge, "loading", "Cena...");
 
       const { item } = await getItemById(itemId);
       const result = await findPriceForItemId(itemId, item);
 
       if (!result.found || !result.priceInfo || result.priceInfo.salesPrice == null) {
-        setBadgeState(priceBadge, "not-found", "Brak ceny");
+        setBadgeState(badge, "not-found", "Brak ceny");
         return;
       }
 
-      const text = formatPriceBadgeText(result.priceInfo);
-      setBadgeState(priceBadge, "ok", text);
-
-      priceBadge.title =
-        `shopId: ${result.priceInfo.shopId}, page: ${result.priceInfo.page}`;
+      setBadgeState(badge, "", formatPrice(result.priceInfo));
+      applyCurrencyClass(badge, result.priceInfo.currency);
+      badge.title = `shopId ${result.priceInfo.shopId}, page ${result.priceInfo.page}`;
     } catch (error) {
-      console.error("Błąd ceny dla ID", itemId, error);
-      setBadgeState(priceBadge, "error", "Błąd ceny");
+      console.error("Price badge error for ID", itemId, error);
+      setBadgeState(badge, "error", "Błąd ceny");
     }
   }
 
@@ -537,56 +500,64 @@
       }
     }
 
-    await Promise.all(
-      Array.from({ length: Math.min(concurrency, items.length || 1) }, () => runner())
+    const runners = Array.from(
+      { length: Math.min(concurrency, Math.max(items.length, 1)) },
+      () => runner()
     );
+
+    await Promise.all(runners);
   }
 
-  async function scanAndEnrichAllCards(root = document) {
-    const cards = Array.from(root.querySelectorAll(CARD_SELECTOR))
+  async function scan(root = document) {
+    const cards = Array.from(root.querySelectorAll(".item-card"))
       .filter(card => !processedCards.has(card));
 
     if (!cards.length) return;
-
-    await runWithConcurrency(cards, enrichCardWithPrice, CONCURRENCY);
+    await runWithConcurrency(cards, enrichCard, CONCURRENCY);
   }
 
-  function setupMutationObserver() {
+  function observe() {
     const observer = new MutationObserver((mutations) => {
-      const addedNodes = [];
+      const roots = [];
 
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
           if (!(node instanceof HTMLElement)) continue;
-          addedNodes.push(node);
+          roots.push(node);
+        }
+
+        if (mutation.target instanceof HTMLElement) {
+          const card = mutation.target.closest?.(".item-card");
+          if (card && !processedCards.has(card)) {
+            enrichCard(card);
+          }
         }
       }
 
-      if (!addedNodes.length) return;
-
-      for (const node of addedNodes) {
-        if (node.matches?.(CARD_SELECTOR)) {
-          enrichCardWithPrice(node);
+      for (const root of roots) {
+        if (root.matches?.(".item-card")) {
+          enrichCard(root);
         } else {
-          scanAndEnrichAllCards(node);
+          scan(root);
         }
       }
     });
 
     observer.observe(document.body, {
       childList: true,
-      subtree: true
+      subtree: true,
+      characterData: true
     });
   }
 
-  async function initPriceBadges() {
-    await scanAndEnrichAllCards(document);
-    setupMutationObserver();
+  async function init() {
+    await scan(document);
+    observe();
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initPriceBadges, { once: true });
+    document.addEventListener("DOMContentLoaded", init, { once: true });
   } else {
-    initPriceBadges();
+    init();
   }
 })();
