@@ -5,52 +5,30 @@
     "https://raw.githubusercontent.com/komimsp/msp2_json_ids/main/prices/id_cena.json";
 
   const CARD_SELECTOR = ".item-card";
+  const BADGE_ROW_SELECTOR = ".tile-badge-row";
+  const META_ID_SELECTOR = ".meta-id";
+  const ITEM_BADGE_SELECTOR = ".item-badge";
 
   let pricesPromise = null;
-  const processedCards = new WeakSet();
 
   injectStyles();
 
   function injectStyles() {
-    if (document.getElementById("price-badge-styles")) return;
+    if (document.getElementById("price-badge-runtime-styles")) return;
 
     const style = document.createElement("style");
-    style.id = "price-badge-styles";
+    style.id = "price-badge-runtime-styles";
     style.textContent = `
-      .price-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 78px;
-        height: 26px;
-        padding: 0 10px;
-        border-radius: 10px;
-        color: #fff;
-        font-size: 0.72rem;
-        font-weight: 800;
-        letter-spacing: 0.02em;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        box-shadow: 0 6px 16px rgba(0,0,0,.18);
-        background: linear-gradient(135deg, #9a9a9a, #6f6f6f);
-        margin-left: 8px;
+      .price-badge.is-runtime-loading {
+        background: #777777 !important;
       }
 
-      .price-badge.sc {
-        background: linear-gradient(135deg, #ffd84d, #f0b400);
+      .price-badge.is-runtime-error {
+        background: #666666 !important;
       }
 
-      .price-badge.dia {
-        background: linear-gradient(135deg, #79c7ff, #3c8ef5);
-      }
-
-      .price-badge.unknown {
-        background: linear-gradient(135deg, #9a9a9a, #6f6f6f);
-      }
-
-      .price-badge.error {
-        background: linear-gradient(135deg, #8b5e5e, #6a4040);
+      .price-badge.is-runtime-unknown {
+        background: linear-gradient(135deg, #9a9a9a, #6f6f6f) !important;
       }
     `;
     document.head.appendChild(style);
@@ -59,19 +37,21 @@
   async function loadPrices() {
     if (!pricesPromise) {
       pricesPromise = (async () => {
-        const res = await fetch(PRICE_URL, { cache: "no-cache" });
+        const response = await fetch(PRICE_URL, {
+          cache: "no-cache"
+        });
 
-        if (!res.ok) {
-          throw new Error(`Nie udało się pobrać cennika: HTTP ${res.status}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} przy pobieraniu id_cena.json`);
         }
 
-        const data = await res.json();
+        const json = await response.json();
 
-        if (!data || typeof data !== "object") {
-          throw new Error("Cennik nie jest poprawnym JSON obiektem.");
+        if (!json || typeof json !== "object" || Array.isArray(json)) {
+          throw new Error("id_cena.json nie jest obiektem JSON");
         }
 
-        return data;
+        return json;
       })();
     }
 
@@ -88,153 +68,160 @@
     return String(value).trim().toUpperCase();
   }
 
-  function formatPriceValue(value) {
+  function normalizePrice(value) {
     if (value == null) return null;
 
     const num = Number(value);
     if (!Number.isFinite(num)) return String(value);
-    if (Number.isInteger(num)) return String(num);
+
+    if (Number.isInteger(num)) {
+      return String(num);
+    }
 
     return String(Number(num.toFixed(2)));
   }
 
-  function formatPriceLabel(entry) {
+  function getPriceEntry(prices, id) {
+    return prices[id] ?? prices[String(id)] ?? null;
+  }
+
+  function extractDisplayData(entry) {
+    if (!entry || typeof entry !== "object") {
+      return null;
+    }
+
     const price =
-      entry?.price ??
-      entry?.salesPrice ??
-      entry?.salesPriceRaw ??
+      entry.price ??
+      entry.salesPrice ??
+      entry.salesPriceRaw ??
       null;
 
     const currency = normalizeCurrency(
-      entry?.currency ??
-      entry?.currencyCode ??
+      entry.currency ??
+      entry.currencyCode ??
+      entry.priceType ??
       null
     );
 
-    const formattedPrice = formatPriceValue(price);
+    const normalizedPrice = normalizePrice(price);
 
-    if (formattedPrice == null) return "Brak ceny";
-    if (currency === "SC") return `${formattedPrice} SC`;
-    if (currency === "DIA") return `${formattedPrice} DIA`;
-    if (currency) return `${formattedPrice} ${currency}`;
-
-    return formattedPrice;
-  }
-
-  function getBadgeClass(entry) {
-    const currency = normalizeCurrency(
-      entry?.currency ??
-      entry?.currencyCode ??
-      null
-    );
-
-    if (currency === "SC") return "sc";
-    if (currency === "DIA") return "dia";
-    return "unknown";
-  }
-
-  function findFirstTextMatch(root, selectors, pattern) {
-    for (const selector of selectors) {
-      const nodes = root.querySelectorAll(selector);
-      for (const node of nodes) {
-        const text = node.textContent?.trim() || "";
-        const match = text.match(pattern);
-        if (match) return match[1] || match[0];
-      }
+    if (normalizedPrice == null) {
+      return {
+        text: "Brak ceny",
+        className: "is-runtime-unknown"
+      };
     }
-    return null;
+
+    if (currency === "SC") {
+      return {
+        text: `${normalizedPrice} SC`,
+        className: "sc"
+      };
+    }
+
+    if (currency === "DIA") {
+      return {
+        text: `${normalizedPrice} DIA`,
+        className: "dia"
+      };
+    }
+
+    if (currency) {
+      return {
+        text: `${normalizedPrice} ${currency}`,
+        className: "is-runtime-unknown"
+      };
+    }
+
+    return {
+      text: `${normalizedPrice}`,
+      className: "is-runtime-unknown"
+    };
   }
 
   function getItemIdFromCard(card) {
-    const directId = findFirstTextMatch(
-      card,
-      [".meta-id", ".item-badge", "[data-id]", ".tile-meta", ".meta-value", "a", "span", "div"],
-      /\b(\d{3,})\b/
-    );
-    if (directId) return directId;
-
-    const jsonLink = Array.from(card.querySelectorAll("a")).find((a) =>
-      /\/\d+\.json(?:$|\?)/i.test(a.getAttribute("href") || "")
-    );
-    if (jsonLink) {
-      const href = jsonLink.getAttribute("href") || "";
-      const match = href.match(/\/(\d+)\.json(?:$|\?)/i);
-      if (match) return match[1];
+    const metaId = card.querySelector(META_ID_SELECTOR)?.textContent?.trim();
+    if (/^\d+$/.test(metaId || "")) {
+      return metaId;
     }
 
-    const wholeCardText = card.textContent || "";
-    const idLabelMatch = wholeCardText.match(/ID\s+(\d{3,})/i);
-    if (idLabelMatch) return idLabelMatch[1];
+    const badgeText = card.querySelector(ITEM_BADGE_SELECTOR)?.textContent?.trim() || "";
+    const badgeMatch = badgeText.match(/\b(\d{3,})\b/);
+    if (badgeMatch) {
+      return badgeMatch[1];
+    }
+
+    const allLinks = Array.from(card.querySelectorAll("a[href]"));
+    for (const link of allLinks) {
+      const href = link.getAttribute("href") || "";
+      const match = href.match(/\/(\d+)\.json(?:$|\?)/i);
+      if (match) {
+        return match[1];
+      }
+    }
 
     return null;
   }
 
-  function getBadgeContainer(card) {
-    return (
-      card.querySelector(".tile-badge-row") ||
-      card.querySelector(".tile-footer") ||
-      card.querySelector(".item-card__footer") ||
-      card.querySelector(".item-card footer") ||
-      card
-    );
-  }
+  function getOrCreateBadge(card) {
+    const row = card.querySelector(BADGE_ROW_SELECTOR);
+    if (!row) return null;
 
-  function getOrCreatePriceBadge(card) {
-    const container = getBadgeContainer(card);
-    if (!container) return null;
-
-    let badge = container.querySelector(".price-badge");
-    if (badge) return badge;
-
-    badge = document.createElement("span");
-    badge.className = "price-badge unknown";
-    badge.textContent = "Cena...";
-    container.appendChild(badge);
+    let badge = row.querySelector(".price-badge");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "price-badge is-runtime-loading";
+      badge.textContent = "Cena...";
+      row.appendChild(badge);
+    }
 
     return badge;
   }
 
-  function setBadge(badge, text, typeClass = "unknown") {
+  function setBadgeState(badge, text, className) {
     badge.className = "price-badge";
-    badge.classList.add(typeClass);
+    if (className) {
+      badge.classList.add(className);
+    }
     badge.textContent = text;
   }
 
-  async function enrichCard(card) {
-    if (!card) return;
-
-    const badge = getOrCreatePriceBadge(card);
+  async function applyPriceToCard(card) {
+    const badge = getOrCreateBadge(card);
     if (!badge) return;
 
-    const itemId = getItemIdFromCard(card);
-    if (!itemId) {
-      setBadge(badge, "Brak ID", "error");
+    const id = getItemIdFromCard(card);
+    if (!id) {
+      setBadgeState(badge, "Brak ID", "is-runtime-error");
       return;
     }
 
     try {
       const prices = await loadPrices();
-      const entry = prices[itemId];
+      const entry = getPriceEntry(prices, id);
 
       if (!entry) {
-        setBadge(badge, "Brak ceny", "unknown");
+        setBadgeState(badge, "Brak ceny", "is-runtime-unknown");
         return;
       }
 
-      setBadge(badge, formatPriceLabel(entry), getBadgeClass(entry));
-      processedCards.add(card);
+      const display = extractDisplayData(entry);
+      if (!display) {
+        setBadgeState(badge, "Brak ceny", "is-runtime-unknown");
+        return;
+      }
+
+      setBadgeState(badge, display.text, display.className);
     } catch (error) {
       console.error("price-badges.js:", error);
-      setBadge(badge, "Błąd ceny", "error");
+      setBadgeState(badge, "Błąd ceny", "is-runtime-error");
     }
   }
 
   async function scan(root = document) {
     const cards = Array.from(root.querySelectorAll(CARD_SELECTOR));
     for (const card of cards) {
-      if (!processedCards.has(card)) {
-        await enrichCard(card);
-      }
+      await applyPriceToCard(card);
     }
   }
 
@@ -245,7 +232,7 @@
           if (!(node instanceof HTMLElement)) continue;
 
           if (node.matches?.(CARD_SELECTOR)) {
-            enrichCard(node);
+            applyPriceToCard(node);
           } else {
             scan(node);
           }
