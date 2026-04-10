@@ -62,8 +62,8 @@
     const raw = String(value ?? "").trim().toLowerCase();
 
     if (!raw) return null;
-    if (raw.includes("star") || raw === "sc") return "SC";
-    if (raw.includes("diamond") || raw === "dia") return "DIA";
+    if (raw.includes("star") || raw === "sc" || raw === "soft") return "SC";
+    if (raw.includes("diamond") || raw === "dia" || raw === "hard") return "DIA";
 
     return String(value).trim().toUpperCase();
   }
@@ -178,6 +178,30 @@
     return badge;
   }
 
+  function getOrCreateMetaPriceRow(card) {
+    const metaGrid = card.querySelector(".meta-grid");
+    if (!metaGrid) return null;
+
+    let row = metaGrid.querySelector(".meta-row.meta-price-row");
+    if (!row) {
+      row = document.createElement("div");
+      row.className = "meta-row meta-price-row";
+
+      const key = document.createElement("span");
+      key.className = "meta-key";
+      key.textContent = "Cena";
+
+      const value = document.createElement("span");
+      value.className = "meta-price";
+      value.textContent = "—";
+
+      row.append(key, value);
+      metaGrid.append(row);
+    }
+
+    return row.querySelector(".meta-price");
+  }
+
   function setBadgeState(badge, text, className) {
     badge.className = "price-badge";
     if (className) {
@@ -188,11 +212,13 @@
 
   async function applyPriceToCard(card) {
     const badge = getOrCreateBadge(card);
+    const metaPrice = getOrCreateMetaPriceRow(card);
     if (!badge) return;
 
     const id = getItemIdFromCard(card);
     if (!id) {
       setBadgeState(badge, "Brak ID", "is-runtime-error");
+      if (metaPrice) metaPrice.textContent = "Brak ID";
       return;
     }
 
@@ -202,19 +228,25 @@
 
       if (!entry) {
         setBadgeState(badge, "Brak ceny", "is-runtime-unknown");
+        if (metaPrice) metaPrice.textContent = "Brak ceny";
         return;
       }
 
       const display = extractDisplayData(entry);
       if (!display) {
         setBadgeState(badge, "Brak ceny", "is-runtime-unknown");
+        if (metaPrice) metaPrice.textContent = "Brak ceny";
         return;
       }
 
       setBadgeState(badge, display.text, display.className);
+      if (metaPrice) {
+        metaPrice.textContent = display.text;
+      }
     } catch (error) {
       console.error("price-badges.js:", error);
       setBadgeState(badge, "Błąd ceny", "is-runtime-error");
+      if (metaPrice) metaPrice.textContent = "Błąd ceny";
     }
   }
 
