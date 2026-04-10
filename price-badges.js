@@ -10,7 +10,7 @@
     62, 67, 68, 69, 70, 71, 89,
   ];
   const PAGE_SIZE = 100;
-  const MAX_PAGES = 3;
+  const MAX_PAGES = 0;
   const LIVE_LOOKUP_CONCURRENCY = 2;
   const LIVE_PRICE_CACHE_PREFIX = "msp2-live-price:";
   const LIVE_PRICE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -142,6 +142,70 @@
     }
 
     return response.json();
+  }
+
+  function parseLastPageHeader(linkHeader) {
+    if (!linkHeader) {
+      return null;
+    }
+
+    const parts = String(linkHeader).split(",");
+    for (const part of parts) {
+      if (!part.includes('rel="last"')) {
+        continue;
+      }
+
+      const match = part.match(/<([^>]+)>/);
+      if (!match) {
+        continue;
+      }
+
+      try {
+        const parsed = new URL(match[1], "https://eu.mspapis.com/");
+        const page = Number.parseInt(parsed.searchParams.get("page") || "", 10);
+        if (Number.isInteger(page) && page > 0) {
+          return page;
+        }
+      } catch {}
+    }
+
+    return null;
+  }
+
+  async function fetchListingPage(url) {
+    const response = await fetch(url, {
+      cache: "no-cache",
+      headers: {
+        accept: "application/json",
+      },
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const totalCount = Number.parseInt(response.headers.get("x-total-count") || "", 10);
+    const lastPageFromHeader = parseLastPageHeader(response.headers.get("link"));
+    const calculatedLastPage =
+      Number.isInteger(totalCount) && totalCount > 0
+        ? Math.ceil(totalCount / PAGE_SIZE)
+        : null;
+
+    let lastPage = lastPageFromHeader ?? calculatedLastPage;
+    if (Number.isInteger(MAX_PAGES) && MAX_PAGES > 0) {
+      lastPage = Number.isInteger(lastPage) ? Math.min(lastPage, MAX_PAGES) : MAX_PAGES;
+    }
+
+    return {
+      data,
+      totalCount: Number.isInteger(totalCount) ? totalCount : null,
+      lastPage: Number.isInteger(lastPage) && lastPage > 0 ? lastPage : null,
+    };
   }
 
   function getJsonBucketName(id) {
@@ -290,6 +354,171 @@
     return finalTags;
   }
 
+  function buildTagStrategies(item) {
+    const baseBuckets = {
+      rootCategory: [],
+      gender: [],
+      category: [],
+      subcategory: [],
+      collection: [],
+      meta: [],
+    };
+
+    const tags = Array.isArray(item?.tags) ? item.tags : [];
+    for (const tag of tags) {
+      const tagId = String(tag?.id ?? "").trim();
+      const tagType = String(tag?.type ?? "").trim();
+
+      if (!tagId) {
+        continue;
+      }
+
+      if (tagType === "gender") {
+        baseBuckets.gender.push(tagId);
+        continue;
+      }
+
+      if (tagType.startsWith("collection.")) {
+        baseBuckets.collection.push(tagId);
+        continue;
+      }
+
+      if (tagType === "meta") {
+        baseBuckets.meta.push(tagId);
+        continue;
+      }
+
+      if (tagType.startsWith("subcategory.")) {
+        baseBuckets.subcategory.push(tagId);
+        continue;
+      }
+
+      if (tagType.startsWith("category.")) {
+        const lookUpId = String(tag?.lookUpId ?? "").toLowerCase();
+        const labelKeys = (tag?.resourceIdentifiers || [])
+          .filter((entry) => entry?.type === "label" && entry?.key)
+          .map((entry) => String(entry.key).toLowerCase());
+
+        const isRootClothes =
+          tagType === "category.clothes" &&
+          (lookUpId === "tag_clothes" ||
+            lookUpId === "tag_beauty" ||
+            labelKeys.includes("tag_clothes") ||
+            labelKeys.includes("tag_beauty"));
+
+        if (isRootClothes) {
+          baseBuckets.rootCategory.push(tagId);
+        } else {
+          baseBuckets.category.push(tagId);
+        }
+      }
+    }
+
+    for (const key of Object.keys(baseBuckets)) {
+      baseBuckets[key] = [...new Set(baseBuckets[key])];
+    }
+
+    const strategies = [];
+    const strategyKeys = new Set();
+
+    function pushStrategy(values) {
+      const unique = [...new Set(values.filter(Boolean).map((value) => String(value).trim()).filter(Boolean))];
+      if (!unique.length) {
+        return;
+      }
+
+      const key = unique.join(",");
+      if (strategyKeys.has(key)) {
+        return;
+      }
+
+      strategyKeys.add(key);
+      strategies.push(unique);
+    }
+
+    const collectionOptions = [[], ...baseBuckets.collection.map((id) => [id])];
+    const metaOptions = [[], ...baseBuckets.meta.map((id) => [id])];
+
+    for (const collection of collectionOptions) {
+      pushStrategy([
+        ...baseBuckets.rootCategory,
+        ...baseBuckets.gender,
+        ...baseBuckets.category,
+        ...baseBuckets.subcategory,
+        ...collection,
+      ]);
+      pushStrategy([
+        ...baseBuckets.rootCategory,
+        ...baseBuckets.gender,
+        ...baseBuckets.category,
+        ...collection,
+      ]);
+      pushStrategy([
+        ...baseBuckets.rootCategory,
+        ...baseBuckets.gender,
+        ...baseBuckets.subcategory,
+        ...collection,
+      ]);
+      pushStrategy([
+        ...baseBuckets.gender,
+        ...baseBuckets.category,
+        ...baseBuckets.subcategory,
+        ...collection,
+      ]);
+      pushStrategy([
+        ...baseBuckets.rootCategory,
+        ...baseBuckets.category,
+        ...baseBuckets.subcategory,
+        ...collection,
+      ]);
+      pushStrategy([
+        ...baseBuckets.rootCategory,
+        ...baseBuckets.gender,
+        ...collection,
+      ]);
+      pushStrategy([
+        ...baseBuckets.category,
+        ...baseBuckets.subcategory,
+        ...collection,
+      ]);
+      pushStrategy([
+        ...baseBuckets.category,
+        ...collection,
+      ]);
+      pushStrategy([
+        ...baseBuckets.subcategory,
+        ...collection,
+      ]);
+      pushStrategy(collection);
+    }
+
+    for (const meta of metaOptions) {
+      pushStrategy([
+        ...baseBuckets.rootCategory,
+        ...baseBuckets.gender,
+        ...baseBuckets.category,
+        ...baseBuckets.subcategory,
+        ...meta,
+      ]);
+      pushStrategy([
+        ...baseBuckets.rootCategory,
+        ...baseBuckets.gender,
+        ...baseBuckets.category,
+        ...meta,
+      ]);
+      pushStrategy([
+        ...baseBuckets.rootCategory,
+        ...baseBuckets.gender,
+        ...meta,
+      ]);
+      pushStrategy(meta);
+    }
+
+    pushStrategy(extractBestTagsForListing(item));
+
+    return strategies;
+  }
+
   function buildListingUrl(tagIds, shopId, page) {
     const url = new URL(`https://eu.mspapis.com/shopinventory/v1/shops/${shopId}/listings`);
     url.searchParams.set("page", String(page));
@@ -302,11 +531,29 @@
     return url.toString();
   }
 
+  function extractListingItemId(entry) {
+    const candidates = [
+      entry?.item?.objectId,
+      entry?.item?.id,
+      entry?.objectId,
+      entry?.id,
+    ];
+
+    for (const candidate of candidates) {
+      const value = Number.parseInt(String(candidate ?? "").trim(), 10);
+      if (Number.isInteger(value)) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
   async function loadListing(url) {
     if (!listingPromiseByUrl.has(url)) {
       listingPromiseByUrl.set(
         url,
-        fetchJsonResource(url).catch((error) => {
+        fetchListingPage(url).catch((error) => {
           listingPromiseByUrl.delete(url);
           throw error;
         })
@@ -489,49 +736,59 @@
           return result;
         }
 
-        const tagIds = extractBestTagsForListing(item);
-        if (!tagIds.length) {
+        const tagStrategies = buildTagStrategies(item);
+        if (!tagStrategies.length) {
           const result = { notFound: true };
           storeLivePrice(id, result);
           return result;
         }
 
-        for (const shopId of SHOP_IDS) {
-          for (let page = 1; page <= MAX_PAGES; page += 1) {
-            const listing = await loadListing(buildListingUrl(tagIds, shopId, page));
-            if (!Array.isArray(listing)) {
-              continue;
-            }
+        for (const tagIds of tagStrategies) {
+          for (const shopId of SHOP_IDS) {
+            let lastPage = Number.isInteger(MAX_PAGES) && MAX_PAGES > 0 ? MAX_PAGES : 1;
 
-            const found = listing.find((entry) => String(entry?.id) === String(id));
-            if (found) {
-              const parsedPrice = extractDisplayData(extractPrice(found));
-              const result = {
-                price:
-                  found?.salesPrice ??
-                  found?.price?.salesPrice ??
-                  found?.pricing?.salesPrice ??
-                  found?.salePrice ??
-                  found?.price?.amount ??
-                  null,
-                currency: normalizeCurrency(
-                  found?.currency ??
-                    found?.price?.currency ??
-                    found?.pricing?.currency ??
-                    found?.currencyType ??
-                    found?.priceType ??
-                    null
-                ),
-                shop: shopId,
-                page,
-                foundButNoPrice: !parsedPrice,
-              };
-              storeLivePrice(id, result);
-              return result;
-            }
+            for (let page = 1; page <= lastPage; page += 1) {
+              const listingPage = await loadListing(buildListingUrl(tagIds, shopId, page));
+              if (!listingPage || !Array.isArray(listingPage.data)) {
+                continue;
+              }
 
-            if (listing.length < PAGE_SIZE) {
-              break;
+              if (Number.isInteger(listingPage.lastPage) && listingPage.lastPage > lastPage) {
+                lastPage = listingPage.lastPage;
+              }
+
+              const found = listingPage.data.find(
+                (entry) => String(extractListingItemId(entry)) === String(id)
+              );
+              if (found) {
+                const parsedPrice = extractDisplayData(extractPrice(found));
+                const result = {
+                  price:
+                    found?.salesPrice ??
+                    found?.price?.salesPrice ??
+                    found?.pricing?.salesPrice ??
+                    found?.salePrice ??
+                    found?.price?.amount ??
+                    null,
+                  currency: normalizeCurrency(
+                    found?.currency ??
+                      found?.price?.currency ??
+                      found?.pricing?.currency ??
+                      found?.currencyType ??
+                      found?.priceType ??
+                      null
+                  ),
+                  shop: shopId,
+                  page,
+                  foundButNoPrice: !parsedPrice,
+                };
+                storeLivePrice(id, result);
+                return result;
+              }
+
+              if (listingPage.data.length < PAGE_SIZE) {
+                break;
+              }
             }
           }
         }
